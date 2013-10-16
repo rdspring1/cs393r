@@ -9,6 +9,7 @@
 #define YDIST 2
 #define TBDIVIDE 8
 #define ASPECTTHRESHOLD 0.35f
+#define LOWERASPECTTHRESHOLD 0.70f
 #define XOFFSET 0.70f
 
 using namespace Eigen;
@@ -165,11 +166,14 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 			}
 			float top_aspect_ratio = ((float) t[tn].dy) / ((float) t[tn].dx);
 			float bottom_aspect_ratio = ((float) b[bn].dy) / ((float) b[bn].dx);
-			if(abs(top_aspect_ratio - 1) > ASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > ASPECTTHRESHOLD)
+			if(abs(top_aspect_ratio - 1) > ASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > LOWERASPECTTHRESHOLD)
 			{
-				cout << "*** top aspect ratio " << abs(top_aspect_ratio - 1) << endl;
-				cout << "*** bottom aspect ratio " << abs(bottom_aspect_ratio - 1) << endl;
-				continue;
+				if(abs(top_aspect_ratio - 1) > LOWERASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > ASPECTTHRESHOLD)
+				{
+					cout << "*** top aspect ratio " << abs(top_aspect_ratio - 1) << endl;
+					cout << "*** bottom aspect ratio " << abs(bottom_aspect_ratio - 1) << endl;
+					continue;
+				}
 			}
 			cout << "*** valid beacon" << endl;
 			BeaconCandidate bCandidate;
