@@ -16,13 +16,13 @@ class BeaconDetector : public ObjectDetector {
   std::vector<BeaconCandidate> candidates;
   int candidateCount;
  private:
-  void findBeacon(BlobCollection& t, BlobCollection& b, bool topCamera, Color topColor, Color BottomColor)
+  void findCandidates(BlobCollection& t, BlobCollection& b, bool topCamera, Color topColor, Color BottomColor);
   void classifyBeacons();
   void removeNonBeacons();
   TextLogger* textlogger;
   Classifier* classifier_;
   BlobDetector* blob_detector_;
   bool isValidCentroid(uint16_t centroidX, uint16_t xi, uint16_t xf, uint16_t offset);
-  bool isOverlapping(uint16_t centroidX, uint16_t centroidY, uint16_t xi, uint16_t xf, uint16_t yi, uint16_t yf) 
+  bool isOverlapping(uint16_t centroidX, uint16_t centroidY, uint16_t xi, uint16_t xf, uint16_t yi, uint16_t yf); 
 };
 #endif

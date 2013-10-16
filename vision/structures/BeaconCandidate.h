@@ -16,6 +16,10 @@ struct BeaconCandidate {
   float groundDistance;
   float confidence;
   float kwDistanceDiscrepancy;
+  uint16_t xi;
+  uint16_t xf;
+  uint16_t yi;
+  uint16_t yf;
   Blob* blob;
   Position relPosition;
   Position absPosition;
