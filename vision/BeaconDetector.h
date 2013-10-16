@@ -5,6 +5,7 @@
 #include <vision/BlobDetector.h>
 #include <vision/ObjectDetector.h>
 #include <vision/Classifier.h>
+#include <vision/enums/Colors.h>
 #include <vision/structures/BeaconCandidate.h>
 
 class BeaconDetector : public ObjectDetector {
@@ -12,14 +13,16 @@ class BeaconDetector : public ObjectDetector {
   BeaconDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier, BlobDetector*& blob_detector);
   void detectBeacon(bool topCamera);
   void init(TextLogger* tl){textlogger = tl;};
-  BeaconCandidate candidates[40];
+  std::vector<BeaconCandidate> candidates;
   int candidateCount;
  private:
-  bool findBeacon(WorldObject* beacon, BlobCollection& t, BlobCollection& b, bool topCamera, int* position);
+  void findBeacon(BlobCollection& t, BlobCollection& b, bool topCamera, Color topColor, Color BottomColor)
+  void classifyBeacons();
+  void removeNonBeacons();
   TextLogger* textlogger;
   Classifier* classifier_;
   BlobDetector* blob_detector_;
-  bool isBigRegion(uint16_t lower1, uint16_t upper1, uint16_t lower2, uint16_t upper2);
-  bool isValidCentroid(uint16_t centroidX, uint16_t xi, uint16_t xf);
+  bool isValidCentroid(uint16_t centroidX, uint16_t xi, uint16_t xf, uint16_t offset);
+  bool isOverlapping(uint16_t centroidX, uint16_t centroidY, uint16_t xi, uint16_t xf, uint16_t yi, uint16_t yf) 
 };
 #endif

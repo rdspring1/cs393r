@@ -40,10 +40,10 @@ BlobCollection BlobDetector::mergeBlobs(BlobCollection& blobs, int thresholdX, i
 				mergedBlobs[mb].yf = newyf;
 				mergedBlobs[mb].dx = newdx;
 				mergedBlobs[mb].dy = newdy;
-                mergedBlobs[mb].avgX = newxi + newdx/2;
-                mergedBlobs[mb].avgY = newyi + newdy/2;
-                mergedBlobs[mb].correctPixelRatio = newcorrectPixelRatio;
-                mergedBlobs[mb].numCorrectColorPixels += blobs[b].numCorrectColorPixels;
+				mergedBlobs[mb].avgX = newxi + newdx/2;
+				mergedBlobs[mb].avgY = newyi + newdy/2;
+				mergedBlobs[mb].correctPixelRatio = newcorrectPixelRatio;
+				mergedBlobs[mb].numCorrectColorPixels += blobs[b].numCorrectColorPixels;
 				merged = true;
 			}
 		}
@@ -56,17 +56,17 @@ BlobCollection BlobDetector::mergeBlobs(BlobCollection& blobs, int thresholdX, i
 }
 
 // vector<BlobCollection> horizontalBlob
-void BlobDetector::formBlobs(int blobColor) {
+void BlobDetector::formBlobs(Color blobColor) {
 	VisionPoint ***hp = classifier_->horizontalPoint;
-    
+
 	//cout << "Forming blobs..." << endl;
-    int hbpos = blobColor;
+	int hbpos = blobColor;
 
-    if(blobColor == c_BLUE)
-        hbpos = c_FIELD_GREEN;
+	if(blobColor == c_BLUE)
+		hbpos = c_FIELD_GREEN;
 
-    if(blobColor == c_YELLOW)
-        hbpos = c_ORANGE;
+	if(blobColor == c_YELLOW)
+		hbpos = c_ORANGE;
 
 	horizontalBlob[hbpos].clear();
 	int numBlobs = 0;
@@ -86,7 +86,7 @@ void BlobDetector::formBlobs(int blobColor) {
 				xf = 0;
 				yi = iparams_.height;
 				yf = 0;
-                sumY = sumX = 0; // ?
+				sumY = sumX = 0;
 				int numCorrectColorPixels = 0;
 				for(size_t c = 0; c < children.size(); ++c) {
 					if (children[c]->xi < xi)
@@ -97,16 +97,16 @@ void BlobDetector::formBlobs(int blobColor) {
 						xf = children[c]->xf;
 					if (children[c]->yf > yf)
 						yf = children[c]->yf;
-                    sumY += yi;
-                    sumX += xi + dx/2;
+					sumY += yi;
+					sumX += xi + dx/2;
 				}
 				dx = xf - xi + 1;
 				dy = yf - yi + 1;
 
 				for(int a = xi; a <= xf; ++a) 
-                {
+				{
 					for(int b=yi; b<=yf; ++b) 
-                    {
+					{
 						if(getSegPixelValueAt(a, b) == blobColor)
 							numCorrectColorPixels++;
 					}
@@ -124,29 +124,29 @@ void BlobDetector::formBlobs(int blobColor) {
 					b.dy = dy;
 					b.correctPixelRatio = ratio;
 					b.numCorrectColorPixels = numCorrectColorPixels;
-                    b.avgX = sumX / children.size();
-                    b.avgY = sumY / children.size();
-                    assert(b.xi + b.dx - 1< iparams_.width);
-                    assert(b.xf < iparams_.width);
-                    assert(b.yi + b.dy - 1 < iparams_.height);
-                    assert(b.yf < iparams_.height);
-                    assert(b.dx < iparams_.width);
-                    assert(b.dy < iparams_.height);
-                    assert(b.dx > 0);
-                    assert(b.dy > 0);
-                    assert(b.correctPixelRatio > 0);
-                    assert(b.numCorrectColorPixels > 0);
-                    //cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
+					b.avgX = sumX / children.size();
+					b.avgY = sumY / children.size();
+					assert(b.xi + b.dx - 1< iparams_.width);
+					assert(b.xf < iparams_.width);
+					assert(b.yi + b.dy - 1 < iparams_.height);
+					assert(b.yf < iparams_.height);
+					assert(b.dx < iparams_.width);
+					assert(b.dy < iparams_.height);
+					assert(b.dx > 0);
+					assert(b.dy > 0);
+					assert(b.correctPixelRatio > 0);
+					assert(b.numCorrectColorPixels > 0);
+					//cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
 					horizontalBlob[hbpos].push_back(b);
 				}
 			}
 		}
-        BlobCollection mergedBlobs = mergeBlobs(horizontalBlob[hbpos], XTHRESHOLD, YTHRESHOLD);
-        horizontalBlob[hbpos].clear();
-        for(size_t i = 0; i < mergedBlobs.size(); ++i)
-        {
-           horizontalBlob[hbpos].push_back(mergedBlobs[i]);
-        }
+		BlobCollection mergedBlobs = mergeBlobs(horizontalBlob[hbpos], XTHRESHOLD, YTHRESHOLD);
+		horizontalBlob[hbpos].clear();
+		for(size_t i = 0; i < mergedBlobs.size(); ++i)
+		{
+			horizontalBlob[hbpos].push_back(mergedBlobs[i]);
+		}
 		//cout << "Blobs color " << blobColor << " : " << numBlobs << " numBlobs2 " << numBlobs2 << " real size " << horizontalBlob[blobColor].size() << endl;
 	}
 	//cout << "End forming blobs..." << endl;
