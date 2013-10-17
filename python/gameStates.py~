@@ -4,8 +4,7 @@ import core
 from task import Task, HeadBodyTask, MachineTask
 import pose, head, kicks
 import commands, cfgstiff
-import testFSM
-import p2Task1, jake_goalie, goalie, attacker, penaltykick
+import p4task
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -37,14 +36,7 @@ class Ready(HeadBodyTask):
 
 class Playing(MachineTask):
   def __init__(self):
-    #Attacker tasks:
-    #super(Playing, self).__init__(penaltykick.PenaltyKick())
-    #super(Playing, self).__init__(attacker.DribbleAndKick())
-
-    #Goalie tasks:
-    super(Playing, self).__init__(goalie.Goalie())
-
-#Playing = kicks.Kick
+    super(Playing, self).__init__(p4task.Task1())
 
 class Testing(Task):
   def run(self):
