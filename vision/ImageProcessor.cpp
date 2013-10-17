@@ -108,9 +108,9 @@ void ImageProcessor::processFrame(){
     classifier_->classifyImage(color_table_);
     classifier_->constructRuns();
     classifier_->mergeRuns();
-    std::cout << "-----------------------------------------------------" << std::endl;
+    //std::cout << "-----------------------------------------------------" << std::endl;
     beacon_detector_->detectBeacon(topCamera);
-    std::cout << "-----------------------------------------------------" << std::endl;
+    //std::cout << "-----------------------------------------------------" << std::endl;
 }
 
 void ImageProcessor::SetColorTable(unsigned char* table) {

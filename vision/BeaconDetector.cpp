@@ -49,7 +49,7 @@ void BeaconDetector::detectBeacon(bool topCamera)
 
 void BeaconDetector::removeNonBeacons()
 {
-        cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
+        //cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
 	for(size_t i = 0; i < candidates.size(); ++i)
 	{
 		BeaconCandidate& s = candidates[i];
@@ -58,7 +58,7 @@ void BeaconDetector::removeNonBeacons()
 			BeaconCandidate& c = candidates[j];
 			if(i != j && isOverlapping(s.centerX, s.yf, c.xi, c.xf, c.yi, c.yf))
 			{
-				cout << "**** centerX: " << s.centerX << " s.yf " << s.yf << " c.xi " << c.xi << " c.xf " << c.xf << " c.yi " << c.yi << " c.yf " << c.yf << endl; 
+				//cout << "**** centerX: " << s.centerX << " s.yf " << s.yf << " c.xi " << c.xi << " c.xf " << c.xf << " c.yi " << c.yi << " c.yf " << c.yf << endl; 
 				s.valid = false;
 				c.valid = false;
 				continue;
@@ -138,30 +138,30 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 	{
 		for(size_t bn = 0; bn < b.size(); ++bn)
 		{
-			cout << "************************* finding beacon ***********************" << endl;
-                        cout << "topColor: " << topColor << " bottomColor: " << bottomColor << endl;
-			cout << "topCamera: " << topCamera << endl;
-			cout << "*** top-x " << t[tn].xi << " top-y " << t[tn].yi << endl; 
-			cout << "*** bottom-x " << b[bn].xi << " bottom-y " << b[bn].yi << endl; 
+			//cout << "************************* finding beacon ***********************" << endl;
+                        //cout << "topColor: " << topColor << " bottomColor: " << bottomColor << endl;
+			//cout << "topCamera: " << topCamera << endl;
+			//cout << "*** top-x " << t[tn].xi << " top-y " << t[tn].yi << endl; 
+			//cout << "*** bottom-x " << b[bn].xi << " bottom-y " << b[bn].yi << endl; 
 			if(b[bn].yi < t[tn].yi)
 			{
-				cout << "*** bottom blob on top of top blob" << endl;
+				//cout << "*** bottom blob on top of top blob" << endl;
 				continue;
 			}
 			if(b[bn].yi - t[tn].yf > TBDIVIDE)
 			{
-				cout << "*** distance between top and bottom blob: " << b[bn].yi - t[tn].yf << endl;
+				//cout << "*** distance between top and bottom blob: " << b[bn].yi - t[tn].yf << endl;
 				continue;
 			}
 			uint16_t diffxpos = abs(t[tn].xi - b[bn].xi);
 			if(diffxpos > XOFFSET * t[tn].dx)
 			{
-				cout << "*** top bottom x offset " << diffxpos << " threshold " << (XOFFSET * t[tn].dx) << endl;
+				//cout << "*** top bottom x offset " << diffxpos << " threshold " << (XOFFSET * t[tn].dx) << endl;
 				continue;
 			}
 			if (!isValidCentroid(t[tn].avgX, b[bn].xi, b[bn].xf, 0) && !isValidCentroid(b[bn].avgX, t[tn].xi, t[tn].xf, 0))
 			{
-				cout << "*** centroid" << endl;
+				//cout << "*** centroid" << endl;
 				continue;
 			}
 			float top_aspect_ratio = ((float) t[tn].dy) / ((float) t[tn].dx);
@@ -170,12 +170,12 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 			{
 				if(abs(top_aspect_ratio - 1) > LOWERASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > ASPECTTHRESHOLD)
 				{
-					cout << "*** top aspect ratio " << abs(top_aspect_ratio - 1) << endl;
-					cout << "*** bottom aspect ratio " << abs(bottom_aspect_ratio - 1) << endl;
+					//cout << "*** top aspect ratio " << abs(top_aspect_ratio - 1) << endl;
+					//cout << "*** bottom aspect ratio " << abs(bottom_aspect_ratio - 1) << endl;
 					continue;
 				}
 			}
-			cout << "*** valid beacon" << endl;
+			//cout << "*** valid beacon" << endl;
 			BeaconCandidate bCandidate;
 			bCandidate.width = max(t[tn].dx, b[bn].dx);
 			bCandidate.height = t[tn].dy + b[bn].dy;
