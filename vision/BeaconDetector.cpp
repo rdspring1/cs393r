@@ -121,7 +121,7 @@ void BeaconDetector::classifyBeacons()
 			Position p = cmatrix_.getWorldPosition(wo->imageCenterX, wo->imageCenterY);
 			wo->visionDistance = cmatrix_.groundDistance(p);
 			float d = cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
-			cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << endl;
+			cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << " CenterX " << wo->imageCenterX << " CenterY " << wo->imageCenterY << endl;
 		}
 	}
 }
@@ -193,7 +193,7 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 				if(aspect_ratio > 2 - ASPECTTHRESHOLD && aspect_ratio < 4 + ASPECTTHRESHOLD)
 				{
 					//cout << "Partial Beacon Detection TOPCOLOR: " << COLOR_NAME(topColor) << " BOTTOMCOLOR: " << COLOR_NAME(bottomColor) << endl;
-					visionLog((1, "Partial Beacon Detected TOPCOLOR: %s BOTTOMCOLOR: %s", COLOR_NAME(topColor), COLOR_NAME(bottomColor)));
+					visionLog((1, "Partial Beacon Detected TOPCOLOR: %s BOTTOMCOLOR: %s TOPX %d TOPY %d", COLOR_NAME(topColor), COLOR_NAME(bottomColor), topBlob.xi, topBlob.yi));
 				}
 				//cout << "*** Partial Ratio " << aspect_ratio << endl;
 				//cout << "*** top aspect ratio " << top_aspect_ratio << endl;
