@@ -28,7 +28,7 @@ BeaconDetector::BeaconDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier, B
 void BeaconDetector::detectBeacon(bool topCamera)
 {
 	candidates.clear();
-        candidates.reserve(NUM_BEACON_CANDIDATES);
+	candidates.reserve(NUM_BEACON_CANDIDATES);
 
 	// The horizontalBlob elements do not work for the YELLOW and BLUE colors
 	blob_detector_->formBlobs(c_PINK);
@@ -47,12 +47,12 @@ void BeaconDetector::detectBeacon(bool topCamera)
 
 	removeNonBeacons();
 	classifyBeacons();
-    
+
 }
 
 void BeaconDetector::removeNonBeacons()
 {
-    //cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
+	//cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
 	for(size_t i = 0; i < candidates.size(); ++i)
 	{
 		BeaconCandidate& s = candidates[i];
@@ -118,10 +118,10 @@ void BeaconDetector::classifyBeacons()
 			wo->imageCenterY = c.centerY;
 			wo->fromTopCamera = c.fromTopCamera;
 			wo->seen = true;
-            Position p = cmatrix_.getWorldPosition(wo->imageCenterX, wo->imageCenterY);
-            wo->visionDistance = cmatrix_.groundDistance(p);
-            float d = cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
-            cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << endl;
+			Position p = cmatrix_.getWorldPosition(wo->imageCenterX, wo->imageCenterY);
+			wo->visionDistance = cmatrix_.groundDistance(p);
+			float d = cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
+			cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << endl;
 		}
 	}
 }
@@ -145,10 +145,10 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 	{
 		for(size_t bn = 0; bn < b.size(); ++bn)
 		{
-            Blob& topBlob = t[tn];
-            Blob& bottomBlob = b[bn];
+			Blob& topBlob = t[tn];
+			Blob& bottomBlob = b[bn];
 			//cout << "************************* finding beacon ***********************" << endl;
-            //cout << "topColor: " << COLOR_NAME(topColor) << " bottomColor: " << COLOR_NAME(bottomColor) << endl;
+			//cout << "topColor: " << COLOR_NAME(topColor) << " bottomColor: " << COLOR_NAME(bottomColor) << endl;
 			//cout << "topCamera: " << topCamera << endl;
 			//cout << "*** top-x " << topBlob.xi << " top-y " << topBlob.yi << endl; 
 			//cout << "*** bottom-x " << bottomBlob.xi << " bottom-y " << bottomBlob.yi << endl; 
@@ -172,33 +172,34 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 			if (!isValidCentroid(topBlob.avgX, bottomBlob.xi, bottomBlob.xf, 0) || !isValidCentroid(bottomBlob.avgX, topBlob.xi, topBlob.xf, 0))
 			{
 				//cout << "*** centroid" << endl;
-                //cout << "*** " << topBlob.avgX << " " << bottomBlob.xi << " " << bottomBlob.xf << endl;
-                //cout << "*** " << bottomBlob.avgX << " " << topBlob.xi << " " << topBlob.xf << endl;
+				//cout << "*** " << topBlob.avgX << " " << bottomBlob.xi << " " << bottomBlob.xf << endl;
+				//cout << "*** " << bottomBlob.avgX << " " << topBlob.xi << " " << topBlob.xf << endl;
 				continue;
 			}
-            if(topBlob.dx > 3 * bottomBlob.dx || bottomBlob.dx > 3 * topBlob.dx || topBlob.dy > 3 * bottomBlob.dy || bottomBlob.dy > 3 * topBlob.dy )
-            {
-                //cout << "Relative Height and Width" << endl;
-                continue;
-            }
+			if(topBlob.dx > 3 * bottomBlob.dx || bottomBlob.dx > 3 * topBlob.dx || topBlob.dy > 3 * bottomBlob.dy || bottomBlob.dy > 3 * topBlob.dy )
+			{
+				//cout << "Relative Height and Width" << endl;
+				continue;
+			}
 			BeaconCandidate bCandidate;
 			bCandidate.width = max(topBlob.dx, bottomBlob.dx);
 			bCandidate.height = topBlob.dy + bottomBlob.dy;
 
 			float top_aspect_ratio = abs(((float) topBlob.dy) / ((float) topBlob.dx) - 1);
 			float bottom_aspect_ratio = abs(((float) bottomBlob.dy) / ((float) bottomBlob.dx) - 1);
-            if(top_aspect_ratio > ASPECTTHRESHOLD || bottom_aspect_ratio > ASPECTTHRESHOLD)
-            {
-			    if(abs((bCandidate.height / bCandidate.width) - 4) < ASPECTTHRESHOLD)
-			    {
-                    //cout << "Partial Beacon Detection TOPCOLOR: " << COLOR_NAME(topColor) << " BOTTOMCOLOR: " << COLOR_NAME(bottomColor) << endl;
-                    visionLog((1, "Partial Beacon Detected TOPCOLOR: %s BOTTOMCOLOR: %s", COLOR_NAME(topColor), COLOR_NAME(bottomColor)));
-			    }
-                //cout << "*** Partial Ratio " << abs((bCandidate.height / bCandidate.width) - 2) << endl;
-			    //cout << "*** top aspect ratio " << top_aspect_ratio << endl;
-			    //cout << "*** bottom aspect ratio " << bottom_aspect_ratio << endl;
-                continue;
-            }
+			if(top_aspect_ratio > ASPECTTHRESHOLD || bottom_aspect_ratio > ASPECTTHRESHOLD)
+			{
+				float aspect_ratio = bCandidate.height / bCandidate.width;
+				if(aspect_ratio > 2 - ASPECTTHRESHOLD && aspect_ratio < 4 + ASPECTTHRESHOLD)
+				{
+					//cout << "Partial Beacon Detection TOPCOLOR: " << COLOR_NAME(topColor) << " BOTTOMCOLOR: " << COLOR_NAME(bottomColor) << endl;
+					visionLog((1, "Partial Beacon Detected TOPCOLOR: %s BOTTOMCOLOR: %s", COLOR_NAME(topColor), COLOR_NAME(bottomColor)));
+				}
+				//cout << "*** Partial Ratio " << aspect_ratio << endl;
+				//cout << "*** top aspect ratio " << top_aspect_ratio << endl;
+				//cout << "*** bottom aspect ratio " << bottom_aspect_ratio << endl;
+				continue;
+			}
 			//cout << "*** valid beacon" << endl;
 			bCandidate.centerX = topBlob.xi + (bCandidate.width / 2);
 			bCandidate.centerY = topBlob.yi + (bCandidate.height / 2);
@@ -206,7 +207,7 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 			bCandidate.fromTopCamera = topCamera;
 			bCandidate.topColor = topColor;
 			bCandidate.bottomColor = bottomColor;
-            bCandidate.xi = min(topBlob.xi, bottomBlob.xi);
+			bCandidate.xi = min(topBlob.xi, bottomBlob.xi);
 			bCandidate.xf = max(topBlob.xf, bottomBlob.xf);
 			bCandidate.yi = topBlob.yi;
 			bCandidate.yf = bottomBlob.yf;
