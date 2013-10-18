@@ -6,8 +6,9 @@
 #include <assert.h>
 
 #define XTHRESHOLD 5
-#define YTHRESHOLD 5
+#define YTHRESHOLD 10
 #define RATIOTHRESHOLD 0.65f
+#define MERGETHRESHOLD 0.40f
 
 BlobDetector::BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : 
 	DETECTOR_INITIALIZE, classifier_(classifier) {
@@ -20,54 +21,56 @@ BlobCollection BlobDetector::mergeBlobs(BlobCollection& blobs, int thresholdX, i
 	BlobCollection mergedBlobs;
 	for(size_t b = 0; b < blobs.size(); ++b) 
 	{
+        Blob& blob = blobs[b];
 		bool merged = false;
 		for(size_t mb = 0; mb < mergedBlobs.size(); ++mb)
 		{
-			uint16_t newxi = min(mergedBlobs[mb].xi, blobs[b].xi);
-			uint16_t newxf = max(mergedBlobs[mb].xf, blobs[b].xf);
+            Blob& mergedBlob = mergedBlobs[mb];
+			uint16_t newxi = min(mergedBlob.xi, blob.xi);
+			uint16_t newxf = max(mergedBlob.xf, blob.xf);
 			uint16_t newdx = newxf - newxi;
-			uint16_t newyi = min(mergedBlobs[mb].yi, blobs[b].yi);
-			uint16_t newyf = max(mergedBlobs[mb].yf, blobs[b].yf);
+			uint16_t newyi = min(mergedBlob.yi, blob.yi);
+			uint16_t newyf = max(mergedBlob.yf, blob.yf);
 			uint16_t newdy = newyf - newyi;
-			float newcorrectPixelRatio = (mergedBlobs[mb].numCorrectColorPixels + blobs[b].numCorrectColorPixels * 1.0f) / (newdx * newdy);
-
-            cout << "merge ratio: " << newcorrectPixelRatio << endl;
-			if(((newdx - mergedBlobs[mb].dx - blobs[b].dx) < thresholdX) && ((newdy - mergedBlobs[mb].dy - blobs[b].dy) < thresholdY) && (newcorrectPixelRatio > RATIOTHRESHOLD))
+			float newcorrectPixelRatio = (mergedBlob.numCorrectColorPixels + blob.numCorrectColorPixels * 1.0f) / (newdx * newdy);
+            //float blackarea = newdx * newdy - mergedBlob.numCorrectColorPixels - blob.numCorrectColorPixels;
+            //min(mergedBlob.numCorrectColorPixels, blob.numCorrectColorPixels) > blackarea)
+			if(((newdx - mergedBlob.dx - blob.dx) < thresholdX) && ((newdy - mergedBlob.dy - blob.dy) < thresholdY) && (newcorrectPixelRatio > RATIOTHRESHOLD))
 			{
-				mergedBlobs[mb].correctPixelRatio = (mergedBlobs[mb].dx*mergedBlobs[mb].dy*mergedBlobs[mb].correctPixelRatio + blobs[mb].dx*blobs[mb].dy*blobs[mb].correctPixelRatio) / ((float) (newdx * newdy));
-				mergedBlobs[mb].xi = newxi;
-				mergedBlobs[mb].xf = newxf;
-				mergedBlobs[mb].yi = newyi;
-				mergedBlobs[mb].yf = newyf;
-				mergedBlobs[mb].dx = newdx;
-				mergedBlobs[mb].dy = newdy;
-                mergedBlobs[mb].avgX = newxi + newdx/2;
-                mergedBlobs[mb].avgY = newyi + newdy/2;
-                mergedBlobs[mb].correctPixelRatio = newcorrectPixelRatio;
-                mergedBlobs[mb].numCorrectColorPixels += blobs[b].numCorrectColorPixels;
+				mergedBlob.correctPixelRatio = (mergedBlob.dx*mergedBlob.dy*mergedBlob.correctPixelRatio + blobs[mb].dx*blobs[mb].dy*blobs[mb].correctPixelRatio) / ((float) (newdx * newdy));
+				mergedBlob.xi = newxi;
+				mergedBlob.xf = newxf;
+				mergedBlob.yi = newyi;
+				mergedBlob.yf = newyf;
+				mergedBlob.dx = newdx;
+				mergedBlob.dy = newdy;
+				mergedBlob.avgX = newxi + newdx/2;
+				mergedBlob.avgY = newyi + newdy/2;
+				mergedBlob.correctPixelRatio = newcorrectPixelRatio;
+				mergedBlob.numCorrectColorPixels += blob.numCorrectColorPixels;
 				merged = true;
 			}
 		}
 		if(!merged)
 		{
-			mergedBlobs.push_back(blobs[b]);
+			mergedBlobs.push_back(blob);
 		}       
 	} 
 	return mergedBlobs;
 }
 
 // vector<BlobCollection> horizontalBlob
-void BlobDetector::formBlobs(int blobColor) {
+void BlobDetector::formBlobs(Color blobColor) {
 	VisionPoint ***hp = classifier_->horizontalPoint;
-    
+
 	//cout << "Forming blobs..." << endl;
-    int hbpos = blobColor;
+	int hbpos = blobColor;
 
-    if(blobColor == c_BLUE)
-        hbpos = c_FIELD_GREEN;
+	if(blobColor == c_BLUE)
+		hbpos = c_FIELD_GREEN;
 
-    if(blobColor == c_YELLOW)
-        hbpos = c_ORANGE;
+	if(blobColor == c_YELLOW)
+		hbpos = c_ORANGE;
 
 	horizontalBlob[hbpos].clear();
 	int numBlobs = 0;
@@ -87,7 +90,7 @@ void BlobDetector::formBlobs(int blobColor) {
 				xf = 0;
 				yi = iparams_.height;
 				yf = 0;
-                sumY = sumX = 0; // ?
+				sumY = sumX = 0;
 				int numCorrectColorPixels = 0;
 				for(size_t c = 0; c < children.size(); ++c) {
 					if (children[c]->xi < xi)
@@ -98,16 +101,16 @@ void BlobDetector::formBlobs(int blobColor) {
 						xf = children[c]->xf;
 					if (children[c]->yf > yf)
 						yf = children[c]->yf;
-                    sumY += yi;
-                    sumX += xi + dx/2;
+					sumY += yi;
+					sumX += xi + dx/2;
 				}
 				dx = xf - xi + 1;
 				dy = yf - yi + 1;
 
 				for(int a = xi; a <= xf; ++a) 
-                {
+				{
 					for(int b=yi; b<=yf; ++b) 
-                    {
+					{
 						if(getSegPixelValueAt(a, b) == blobColor)
 							numCorrectColorPixels++;
 					}
@@ -125,29 +128,29 @@ void BlobDetector::formBlobs(int blobColor) {
 					b.dy = dy;
 					b.correctPixelRatio = ratio;
 					b.numCorrectColorPixels = numCorrectColorPixels;
-                    b.avgX = sumX / children.size();
-                    b.avgY = sumY / children.size();
-                    assert(b.xi + b.dx - 1< iparams_.width);
-                    assert(b.xf < iparams_.width);
-                    assert(b.yi + b.dy - 1 < iparams_.height);
-                    assert(b.yf < iparams_.height);
-                    assert(b.dx < iparams_.width);
-                    assert(b.dy < iparams_.height);
-                    assert(b.dx > 0);
-                    assert(b.dy > 0);
-                    assert(b.correctPixelRatio > 0);
-                    assert(b.numCorrectColorPixels > 0);
-                    //cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
+					b.avgX = sumX / children.size();
+					b.avgY = sumY / children.size();
+					assert(b.xi + b.dx - 1< iparams_.width);
+					assert(b.xf < iparams_.width);
+					assert(b.yi + b.dy - 1 < iparams_.height);
+					assert(b.yf < iparams_.height);
+					assert(b.dx < iparams_.width);
+					assert(b.dy < iparams_.height);
+					assert(b.dx > 0);
+					assert(b.dy > 0);
+					assert(b.correctPixelRatio > 0);
+					assert(b.numCorrectColorPixels > 0);
+					//cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
 					horizontalBlob[hbpos].push_back(b);
 				}
 			}
 		}
-        BlobCollection mergedBlobs = mergeBlobs(horizontalBlob[hbpos], XTHRESHOLD, YTHRESHOLD);
-        horizontalBlob[hbpos].clear();
-        for(size_t i = 0; i < mergedBlobs.size(); ++i)
-        {
-           horizontalBlob[hbpos].push_back(mergedBlobs[i]);
-        }
+		BlobCollection mergedBlobs = mergeBlobs(horizontalBlob[hbpos], XTHRESHOLD, YTHRESHOLD);
+		horizontalBlob[hbpos].clear();
+		for(size_t i = 0; i < mergedBlobs.size(); ++i)
+		{
+			horizontalBlob[hbpos].push_back(mergedBlobs[i]);
+		}
 		//cout << "Blobs color " << blobColor << " : " << numBlobs << " numBlobs2 " << numBlobs2 << " real size " << horizontalBlob[blobColor].size() << endl;
 	}
 	//cout << "End forming blobs..." << endl;

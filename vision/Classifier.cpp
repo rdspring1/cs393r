@@ -162,7 +162,6 @@ void Classifier::reset(){
                 horizontalPoint[color][j][k].xi = 0;
                 horizontalPoint[color][j][k].yf = 0;
                 horizontalPoint[color][j][k].yi = 0;
-                //if(horizontalPoint[color][j][k].parent != NULL)
                 horizontalPoint[color][j][k].parent = &horizontalPoint[color][j][k];
                 horizontalPoint[color][j][k].position = 0;
                 horizontalPoint[color][j][k].number = 0;
@@ -182,6 +181,7 @@ void Classifier::constructRuns(){
   {
     xi = 0;
     previousColor = getSegPixelValueAt(xi, y); // The first color seen for the row is the one at position x, 0
+
     horizontalPointCount[previousColor][y]++; // Increase the count for the run for that color in that y
     
     for(int x = 1; x < iparams_.width; ++x) // we proceed at x = 1
@@ -253,7 +253,10 @@ void Classifier::mergeRuns() {
 
   //cout << " Start merging runs " << endl;
   for (int color = 0; color < NUM_COLORS; ++color) {
-    
+
+    if(color == c_WHITE || color == c_UNDEFINED || color == c_ORANGE || color == c_ROBOT_WHITE || color == c_FIELD_GREEN)
+        continue;
+
     for (int y = 1; y < iparams_.height; ++y) {
       // Get number of runs for that color at that row
       int numRuns = horizontalPointCount[color][y];

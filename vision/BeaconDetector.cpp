@@ -1,6 +1,7 @@
 #include "BeaconDetector.h"
 #include <iostream>
 #include <cmath>
+#include <memory/TextLogger.h>
 
 #define NUM_BEACON_CANDIDATES 40
 #define XTHRESHOLD 5
@@ -9,7 +10,8 @@
 #define YDIST 2
 #define TBDIVIDE 8
 #define ASPECTTHRESHOLD 0.35f
-#define LOWERASPECTTHRESHOLD 0.70f
+#define LOWERASPECTTHRESHOLD 2.0f
+#define OVERLAPTHRESHOLD -0.25f
 #define XOFFSET 0.70f
 
 using namespace Eigen;
@@ -45,11 +47,12 @@ void BeaconDetector::detectBeacon(bool topCamera)
 
 	removeNonBeacons();
 	classifyBeacons();
+    
 }
 
 void BeaconDetector::removeNonBeacons()
 {
-        //cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
+    //cout << "********** NumBeaconCandidates: " << candidates.size() << endl;
 	for(size_t i = 0; i < candidates.size(); ++i)
 	{
 		BeaconCandidate& s = candidates[i];
@@ -115,6 +118,10 @@ void BeaconDetector::classifyBeacons()
 			wo->imageCenterY = c.centerY;
 			wo->fromTopCamera = c.fromTopCamera;
 			wo->seen = true;
+            Position p = cmatrix_.getWorldPosition(wo->imageCenterX, wo->imageCenterY);
+            wo->visionDistance = cmatrix_.groundDistance(p);
+            float d = cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
+            cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << endl;
 		}
 	}
 }
@@ -138,57 +145,71 @@ void BeaconDetector::findCandidates(BlobCollection& t, BlobCollection& b, bool t
 	{
 		for(size_t bn = 0; bn < b.size(); ++bn)
 		{
+            Blob& topBlob = t[tn];
+            Blob& bottomBlob = b[bn];
 			//cout << "************************* finding beacon ***********************" << endl;
-                        //cout << "topColor: " << topColor << " bottomColor: " << bottomColor << endl;
+            //cout << "topColor: " << COLOR_NAME(topColor) << " bottomColor: " << COLOR_NAME(bottomColor) << endl;
 			//cout << "topCamera: " << topCamera << endl;
-			//cout << "*** top-x " << t[tn].xi << " top-y " << t[tn].yi << endl; 
-			//cout << "*** bottom-x " << b[bn].xi << " bottom-y " << b[bn].yi << endl; 
-			if(b[bn].yi < t[tn].yi)
+			//cout << "*** top-x " << topBlob.xi << " top-y " << topBlob.yi << endl; 
+			//cout << "*** bottom-x " << bottomBlob.xi << " bottom-y " << bottomBlob.yi << endl; 
+			if(bottomBlob.yi < topBlob.yi && bottomBlob.yf < topBlob.yf)
 			{
-				//cout << "*** bottom blob on top of top blob" << endl;
+				//cout << "*** bottom blob above top blob" << endl;
 				continue;
 			}
-			if(b[bn].yi - t[tn].yf > TBDIVIDE)
+
+			if(bottomBlob.yi - topBlob.yf > TBDIVIDE || bottomBlob.yi - topBlob.yf < OVERLAPTHRESHOLD * topBlob.dy)
 			{
-				//cout << "*** distance between top and bottom blob: " << b[bn].yi - t[tn].yf << endl;
+				//cout << "*** distance between top and bottom blob: " << bottomBlob.yi - topBlob.yf << endl;
 				continue;
 			}
-			uint16_t diffxpos = abs(t[tn].xi - b[bn].xi);
-			if(diffxpos > XOFFSET * t[tn].dx)
+			uint16_t diffxpos = abs(topBlob.xi - bottomBlob.xi);
+			if(diffxpos > XOFFSET * topBlob.dx)
 			{
-				//cout << "*** top bottom x offset " << diffxpos << " threshold " << (XOFFSET * t[tn].dx) << endl;
+				//cout << "*** top bottom x offset " << diffxpos << " threshold " << (XOFFSET * topBlob.dx) << endl;
 				continue;
 			}
-			if (!isValidCentroid(t[tn].avgX, b[bn].xi, b[bn].xf, 0) && !isValidCentroid(b[bn].avgX, t[tn].xi, t[tn].xf, 0))
+			if (!isValidCentroid(topBlob.avgX, bottomBlob.xi, bottomBlob.xf, 0) || !isValidCentroid(bottomBlob.avgX, topBlob.xi, topBlob.xf, 0))
 			{
 				//cout << "*** centroid" << endl;
+                //cout << "*** " << topBlob.avgX << " " << bottomBlob.xi << " " << bottomBlob.xf << endl;
+                //cout << "*** " << bottomBlob.avgX << " " << topBlob.xi << " " << topBlob.xf << endl;
 				continue;
 			}
-			float top_aspect_ratio = ((float) t[tn].dy) / ((float) t[tn].dx);
-			float bottom_aspect_ratio = ((float) b[bn].dy) / ((float) b[bn].dx);
-			if(abs(top_aspect_ratio - 1) > ASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > LOWERASPECTTHRESHOLD)
-			{
-				if(abs(top_aspect_ratio - 1) > LOWERASPECTTHRESHOLD || abs(bottom_aspect_ratio - 1) > ASPECTTHRESHOLD)
-				{
-					//cout << "*** top aspect ratio " << abs(top_aspect_ratio - 1) << endl;
-					//cout << "*** bottom aspect ratio " << abs(bottom_aspect_ratio - 1) << endl;
-					continue;
-				}
-			}
-			//cout << "*** valid beacon" << endl;
+            if(topBlob.dx > 3 * bottomBlob.dx || bottomBlob.dx > 3 * topBlob.dx || topBlob.dy > 3 * bottomBlob.dy || bottomBlob.dy > 3 * topBlob.dy )
+            {
+                //cout << "Relative Height and Width" << endl;
+                continue;
+            }
 			BeaconCandidate bCandidate;
-			bCandidate.width = max(t[tn].dx, b[bn].dx);
-			bCandidate.height = t[tn].dy + b[bn].dy;
-			bCandidate.centerX = t[tn].xi + (bCandidate.width / 2);
-			bCandidate.centerY = t[tn].yi + (bCandidate.height / 2);
+			bCandidate.width = max(topBlob.dx, bottomBlob.dx);
+			bCandidate.height = topBlob.dy + bottomBlob.dy;
+
+			float top_aspect_ratio = abs(((float) topBlob.dy) / ((float) topBlob.dx) - 1);
+			float bottom_aspect_ratio = abs(((float) bottomBlob.dy) / ((float) bottomBlob.dx) - 1);
+            if(top_aspect_ratio > ASPECTTHRESHOLD || bottom_aspect_ratio > ASPECTTHRESHOLD)
+            {
+			    if(abs((bCandidate.height / bCandidate.width) - 4) < ASPECTTHRESHOLD)
+			    {
+                    //cout << "Partial Beacon Detection TOPCOLOR: " << COLOR_NAME(topColor) << " BOTTOMCOLOR: " << COLOR_NAME(bottomColor) << endl;
+                    visionLog((1, "Partial Beacon Detected TOPCOLOR: %s BOTTOMCOLOR: %s", COLOR_NAME(topColor), COLOR_NAME(bottomColor)));
+			    }
+                //cout << "*** Partial Ratio " << abs((bCandidate.height / bCandidate.width) - 2) << endl;
+			    //cout << "*** top aspect ratio " << top_aspect_ratio << endl;
+			    //cout << "*** bottom aspect ratio " << bottom_aspect_ratio << endl;
+                continue;
+            }
+			//cout << "*** valid beacon" << endl;
+			bCandidate.centerX = topBlob.xi + (bCandidate.width / 2);
+			bCandidate.centerY = topBlob.yi + (bCandidate.height / 2);
 			bCandidate.valid = true;
 			bCandidate.fromTopCamera = topCamera;
 			bCandidate.topColor = topColor;
 			bCandidate.bottomColor = bottomColor;
-                        bCandidate.xi = min(t[tn].xi, b[bn].xi);
-			bCandidate.xf = max(t[tn].xf, b[bn].xf);
-			bCandidate.yi = t[tn].yi;
-			bCandidate.yf = b[bn].yf;
+            bCandidate.xi = min(topBlob.xi, bottomBlob.xi);
+			bCandidate.xf = max(topBlob.xf, bottomBlob.xf);
+			bCandidate.yi = topBlob.yi;
+			bCandidate.yf = bottomBlob.yf;
 			candidates.push_back(bCandidate);
 		}
 	}

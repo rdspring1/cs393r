@@ -6,8 +6,9 @@
 #include <assert.h>
 
 #define XTHRESHOLD 5
-#define YTHRESHOLD 5
+#define YTHRESHOLD 10
 #define RATIOTHRESHOLD 0.65f
+#define MERGETHRESHOLD 0.40f
 
 BlobDetector::BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : 
 	DETECTOR_INITIALIZE, classifier_(classifier) {
@@ -20,36 +21,39 @@ BlobCollection BlobDetector::mergeBlobs(BlobCollection& blobs, int thresholdX, i
 	BlobCollection mergedBlobs;
 	for(size_t b = 0; b < blobs.size(); ++b) 
 	{
+        Blob& blob = blobs[b];
 		bool merged = false;
 		for(size_t mb = 0; mb < mergedBlobs.size(); ++mb)
 		{
-			uint16_t newxi = min(mergedBlobs[mb].xi, blobs[b].xi);
-			uint16_t newxf = max(mergedBlobs[mb].xf, blobs[b].xf);
+            Blob& mergedBlob = mergedBlobs[mb];
+			uint16_t newxi = min(mergedBlob.xi, blob.xi);
+			uint16_t newxf = max(mergedBlob.xf, blob.xf);
 			uint16_t newdx = newxf - newxi;
-			uint16_t newyi = min(mergedBlobs[mb].yi, blobs[b].yi);
-			uint16_t newyf = max(mergedBlobs[mb].yf, blobs[b].yf);
+			uint16_t newyi = min(mergedBlob.yi, blob.yi);
+			uint16_t newyf = max(mergedBlob.yf, blob.yf);
 			uint16_t newdy = newyf - newyi;
-			float newcorrectPixelRatio = (mergedBlobs[mb].numCorrectColorPixels + blobs[b].numCorrectColorPixels * 1.0f) / (newdx * newdy);
-
-			if(((newdx - mergedBlobs[mb].dx - blobs[b].dx) < thresholdX) && ((newdy - mergedBlobs[mb].dy - blobs[b].dy) < thresholdY) && (newcorrectPixelRatio > RATIOTHRESHOLD))
+			float newcorrectPixelRatio = (mergedBlob.numCorrectColorPixels + blob.numCorrectColorPixels * 1.0f) / (newdx * newdy);
+            //float blackarea = newdx * newdy - mergedBlob.numCorrectColorPixels - blob.numCorrectColorPixels;
+            //min(mergedBlob.numCorrectColorPixels, blob.numCorrectColorPixels) > blackarea)
+			if(((newdx - mergedBlob.dx - blob.dx) < thresholdX) && ((newdy - mergedBlob.dy - blob.dy) < thresholdY) && (newcorrectPixelRatio > RATIOTHRESHOLD))
 			{
-				mergedBlobs[mb].correctPixelRatio = (mergedBlobs[mb].dx*mergedBlobs[mb].dy*mergedBlobs[mb].correctPixelRatio + blobs[mb].dx*blobs[mb].dy*blobs[mb].correctPixelRatio) / ((float) (newdx * newdy));
-				mergedBlobs[mb].xi = newxi;
-				mergedBlobs[mb].xf = newxf;
-				mergedBlobs[mb].yi = newyi;
-				mergedBlobs[mb].yf = newyf;
-				mergedBlobs[mb].dx = newdx;
-				mergedBlobs[mb].dy = newdy;
-				mergedBlobs[mb].avgX = newxi + newdx/2;
-				mergedBlobs[mb].avgY = newyi + newdy/2;
-				mergedBlobs[mb].correctPixelRatio = newcorrectPixelRatio;
-				mergedBlobs[mb].numCorrectColorPixels += blobs[b].numCorrectColorPixels;
+				mergedBlob.correctPixelRatio = (mergedBlob.dx*mergedBlob.dy*mergedBlob.correctPixelRatio + blobs[mb].dx*blobs[mb].dy*blobs[mb].correctPixelRatio) / ((float) (newdx * newdy));
+				mergedBlob.xi = newxi;
+				mergedBlob.xf = newxf;
+				mergedBlob.yi = newyi;
+				mergedBlob.yf = newyf;
+				mergedBlob.dx = newdx;
+				mergedBlob.dy = newdy;
+				mergedBlob.avgX = newxi + newdx/2;
+				mergedBlob.avgY = newyi + newdy/2;
+				mergedBlob.correctPixelRatio = newcorrectPixelRatio;
+				mergedBlob.numCorrectColorPixels += blob.numCorrectColorPixels;
 				merged = true;
 			}
 		}
 		if(!merged)
 		{
-			mergedBlobs.push_back(blobs[b]);
+			mergedBlobs.push_back(blob);
 		}       
 	} 
 	return mergedBlobs;
@@ -124,8 +128,8 @@ void BlobDetector::formBlobs(Color blobColor) {
 					b.dy = dy;
 					b.correctPixelRatio = ratio;
 					b.numCorrectColorPixels = numCorrectColorPixels;
-					b.avgX = sumX / children.size();
-					b.avgY = sumY / children.size();
+					b.avgX = xi + dx / 2;
+					b.avgY = yi + dy / 2;
 					assert(b.xi + b.dx - 1< iparams_.width);
 					assert(b.xf < iparams_.width);
 					assert(b.yi + b.dy - 1 < iparams_.height);
