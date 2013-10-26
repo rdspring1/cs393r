@@ -10,13 +10,10 @@
 class BallDetector : public ObjectDetector {
  public:
   BallDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier, BlobDetector*& blob_detector);
-  void detectBall();
   void init(TextLogger* tl){textlogger = tl;};
   BallCandidate candidates[MAX_BALL_CANDS];
   int candidateCount;
  private:
-  void findBall(int& imageX, int& imageY, bool& seen, float& xc, float& yc, float& radius);
-  bool checkGridSquare(const int& x, const int& y);
   TextLogger* textlogger;
   Classifier* classifier_;
   BlobDetector* blob_detector_;

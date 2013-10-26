@@ -12,7 +12,6 @@
 #include <vision/BallDetector.h>
 #include <vision/RobotDetector.h>
 #include <vision/CrossDetector.h>
-#include <vision/BeaconDetector.h>
 #include <vision/Classifier.h>
 #include <vision/RobotCalibration.h>
 #include <vision/structures/BallCandidate.h>
@@ -31,7 +30,6 @@ class ImageProcessor {
     BlobDetector* blob_detector_;
     RobotDetector* robot_detector_;
     CrossDetector* cross_detector_;
-    BeaconDetector* beacon_detector_;
     Classifier* classifier_;
     unsigned char* getImg();
     unsigned char* getSegImg();

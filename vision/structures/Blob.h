@@ -19,7 +19,6 @@ struct Blob {
   float avgWidth;
   float correctPixelRatio;
   bool invalid;
-  int numCorrectColorPixels;
 
   Blob() : lpIndex(MAX_BLOB_VISIONPOINTS, 0) { }
 };

@@ -4,7 +4,7 @@ import core
 from task import Task, HeadBodyTask, MachineTask
 import pose, head, kicks
 import commands, cfgstiff
-import p4task
+import testFSM
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -36,7 +36,7 @@ class Ready(HeadBodyTask):
 
 class Playing(MachineTask):
   def __init__(self):
-    super(Playing, self).__init__(p4task.Task1())
+    super(Playing, self).__init__(testFSM.TestMachine())
 
 class Testing(Task):
   def run(self):

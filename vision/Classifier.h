@@ -33,21 +33,13 @@ class Classifier {
   void setStepScale(int hscale, int vscale);
   void getStepSize(int& hstep, int& vstep);
   void getStepScale(int& hscale, int& vscale);
-  void constructRuns();
-  void mergeRuns(); // Checks the runs of each color and checks the row above to see if we can perform unionOfRuns
-
  private:
-  void update(VisionPoint *root, vector<VisionPoint *> runs);
-  void changeChildren(VisionPoint *run, VisionPoint *root);
   bool setImagePointers();
-  VisionPoint * root(VisionPoint *run); // Get the root of a run(vision point)
-  void unionOfRuns(VisionPoint *run1, VisionPoint *run2); // Union of two runs
   const VisionBlocks& vblocks_;
   const VisionParams& vparams_;
   const ImageParams& iparams_;
   const Camera::Type& camera_;
   bool initialized_;
-  void reset();
   TextLogger* textlogger;
 
   unsigned char* img_;
