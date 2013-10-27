@@ -1,92 +1,59 @@
 from state import * 
-import commands, core, util, pose
+import commands, core, head, util, pose
 import time
+import math
+
+CTHRESHOLD = 0.80
+BTHRESHOLD = math.radians(10)
+DTHRESHOLD = 50
+kp = 0.2
 
 class TestMachine(StateMachine):
   def setup(self):
     start = Node()
     finish = Node()
-    sit = SitNode()
-    stand = StandNode()
     choose = ChooseNode()
-    self._adt(start, N, stand)
-    self._adt(stand, C, choose)
-    self._adt(choose, S(Choices.Forward), WalkNode(), S, choose)
-    self._adt(choose, S(Choices.Left), TurnLeftNode(), S, choose)
-    self._adt(choose, S(Choices.Right), TurnRightNode(), S, choose)
-    self._adt(choose, I(4), SpeakNode('completed'), S, sit)
-    self._adt(sit, C, finish)
-
-
-def rand():
-  t = int(time.time() * 1000) % 1000
-  return t
+    self._adt(start, N, choose)
+    self._adt(choose, S(Choices.Localize), LocalizeNode(), S, choose)
+    self._adt(choose, C, finish)
 
 class Choices:
-  Left = 0
-  Right = 1
+  Localize = 0
+  Rotate = 1
   Forward = 2
-  NumChoices = 3
+  Reverse = 3
+  NumChoices = 4
 
 class ChooseNode(Node):
   _choices = 0
   def run(self):
-    if ChooseNode._choices > 10:
-      self.poseCompletion()
-      return
-    if self.getTime() > 4.0:
-      choice = (rand() % Choices.NumChoices)
-      self.postSignal(choice)
-      ChooseNode._choices += 1
+    robot = core.world_objects.getObjPtr(core.robot_state.WO_SELF)
+    print "Current Location X: %d Y: %d" % (robot.loc.x, robot.loc.y, )
+    print "Confidence: " + str(robot.visionConfidence)
+    if robot.visionConfidence < CTHRESHOLD:
+        self.postSignal(Choices.Localize)
+    elif robot.visionBearing > BTHRESHOLD and (2 * math.pi - robot.visionBearing) > BTHRESHOLD:
+        commands.setWalkVelocity(0.0, 0.0, kp * robot.visionBearing)
+    elif robot.visionDistance > DTHRESHOLD:
+	commands.setWalkVelocity(kp * robot.visionDistance, 0.0, 0.0)
+    else:
+        commands.stand()
+	print "Localization Complete"
+        core.speech.say("Localization Complete")
 
-class TurnLeftNode(Node):
-  def run(self):
-    commands.setWalkVelocity(0, 0, .25)
-    if self.getTime() > 4.0:
-      commands.stand()
-      self.postSuccess()
-
-class TurnRightNode(Node):
-  def run(self):
-    commands.setWalkVelocity(0, 0, -.25)
-    if self.getTime() > 4.0:
-      commands.stand()
-      self.postSuccess()
-
-class SpeakNode(Node):
-  def __init__(self, phrase):
-    super(SpeakNode, self).__init__()
-    self.phrase = phrase
-
-  def run(self):
-    if self.getFrames() == 0:
-      core.speech.say(self.phrase)
-    if self.getTime() > 4.0:
-      self.postSuccess()
-
-class WalkNode(Node):
-  def run(self):
-    commands.setWalkVelocity(.5, 0, 0)
-    if self.getTime() > 2.0:
-      commands.stand()
-      self.postSuccess()
-
-class SitNode(Node):
+class LocalizeNode(Node):
   def __init__(self):
-    super(SitNode, self).__init__()
-    self.task = pose.Sit()
+     super(LocalizeNode, self).__init__()
+     self.task = head.Scan()
 
   def run(self):
-    self.task.processFrame() 
-    if self.task.finished():
-      self.postCompleted()
+     print "Scan Head"
+     core.speech.say("Scan Head")
+     self.task.processFrame()
+     if self.task.finished():
+        self.postSuccess()
 
-class StandNode(Node):
-  def __init__(self):
-    super(StandNode, self).__init__()
-    self.task = pose.Stand()
-
-  def run(self):
-    self.task.processFrame()
-    if self.task.finished():
-      self.postCompleted()
+  def reset(self):
+     super(LocalizeNode, self).reset()
+     self.task = head.Scan()
+     
