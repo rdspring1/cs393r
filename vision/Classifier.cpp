@@ -1,6 +1,8 @@
 #include "Classifier.h"
 #include <iostream>
+#include <vector>
 
+using namespace std;
 Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams, const ImageParams& iparams, const Camera::Type& camera) :
     vblocks_(vblocks), vparams_(vparams), iparams_(iparams), camera_(camera), initialized_(false) {
   segImg_ = new unsigned char[iparams.size];
@@ -16,6 +18,26 @@ Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams,
   for(int i=0;i<NUM_COLORS;i++) {
     verticalPointCount[i] = new uint32_t[iparams_.width];
     memset(verticalPointCount[i], 0, iparams_.width);
+  }
+
+  for(int i = 0; i<NUM_COLORS; i++)
+  {
+    for(int j = 0; j < iparams_.height; j++)
+        horizontalPointCount[i][j] = 0; // issues with memset
+
+    for(int j = 0; j < iparams_.width; j++)
+        verticalPointCount[i][j] = 0;
+  }
+  
+  // Initialize horizontalPoint
+  horizontalPoint = new VisionPoint**[NUM_COLORS];
+  for (int i = 0; i < NUM_COLORS; ++i) {
+
+    horizontalPoint[i] = new VisionPoint*[iparams_.height];
+
+    for (int j = 0; j < iparams_.height; ++j) {
+       horizontalPoint[i][j] = new VisionPoint[iparams_.width];
+    }
   }
 }
 
@@ -123,7 +145,6 @@ void Classifier::getStepScale(int& h, int& v){
     v = vscale_;
 }
 
-<<<<<<< HEAD
 void Classifier::reset(){
   // Reset matrices for when constructing a new run
     for(int color = 0; color < NUM_COLORS; color++)
@@ -328,5 +349,3 @@ void Classifier::unionOfRuns(VisionPoint *run1, VisionPoint *run2) {
 
 
 
-=======
->>>>>>> 2a3dcdf948dddfc5f02e3e8efb07c4ef1382bff6

@@ -45,38 +45,101 @@ void LocalizationModule::initSpecificModule(){
 void LocalizationModule::processFrame() {
   int frameID = frameInfo->frame_id;
   // 1. Update particles from observations
+    updateParticlesFromObservations();
+
   // 2. If this is a resampling frame, resample
+  //resample();
   // 3. Update the robot's pose
   // 4. If this is a random walk frame, random walk
   // 5. Copy particles to localization memory:
-  //resetParticles();
-  updateParticlesFromObservations();
-  copyParticles();
+  copyParticles();  
 }
 
+float LocalizationModule::getTotalFitness() {
+    float total = 0.0f;
+    for(int i = 0; i < NUM_PARTICLES; i++) {
+        total += particles_[i].prob;
+    }
+
+    return total;
+}
+
+void LocalizationModule::resample() {
+   float totalFitness = getTotalFitness();
+   float c[NUM_PARTICLES];
+   c[0] = particles_[0].prob;
+
+   float p = totalFitness *1.0 / NUM_PARTICLES;
+   Particle particlescpy[NUM_PARTICLES] = particles_;
+   float start = (float)rand()/((float)RAND_MAX/(p)); // indicates where the first pointer will start
+
+   for (int i = 1; i < NUM_PARTICLES; ++i) {
+      c[i] = c[i-1] + particles_[i].prob;
+    }
+  int i = 0;
+  float u = start;
+  for (int j = 0; j < NUM_PARTICLES; ++j) {
+     while (u > c[i])
+        i++;
+    // add particle
+    particles_[j] = particlescpy[i];
+    u +=  p;
+  } 
+}
+
+vector<WorldObject *> LocalizationModule::getBeacons() {
+    vector<WorldObject *> beacons;
+
+    WorldObject& wo = worldObjects->objects_[WO_BEACON_PINK_YELLOW];
+   /* if (wo.seen)
+       beacons.push_back(&wo);
+    wo =worldObjects->objects_[WO_BEACON_PINK_BLUE];
+     if (wo.seen)
+       beacons.push_back(&wo);
+    wo = worldObjects->objects_[WO_BEACON_YELLOW_PINK];
+     if (wo.seen)
+       beacons.push_back(&wo);*/
+    wo = worldObjects->objects_[WO_BEACON_YELLOW_BLUE]; 
+    wo->visionDistance = 1500/2;
+     //if (wo.seen)
+       beacons.push_back(&wo);
+   /*wo = worldObjects->objects_[WO_BEACON_BLUE_YELLOW];
+     if (wo.seen)
+       beacons.push_back(&wo);
+    wo = worldObjects->objects_[WO_BEACON_BLUE_PINK]; 
+*/
+    return beacons;
+}
+
+
 void LocalizationModule::updateParticlesFromObservations() {
-    int x = 0;
-    int y = 1500/2;
-    int observed = 1500/2;
-    float differencePercentage[NUM_PARTICLES];
-    float total = 0.0;
+    vector<WorldObject*> beacons = getBeacons();
+    float totalweight = 0.0;
+    bool valueGreaterThan1 = false;
     for(int i = 0; i < NUM_PARTICLES; i++) {
         Particle& p = particles_[i];
-        int xdiff = p.loc.x - x;
-        int ydiff = p.loc.y - y;
-        float distance = sqrt(pow(xdiff, 2) + (ydiff, 2));
-        float diff = fabs(observed - distance);
-        differencePercentage[i] = distance * 1.0 / diff;
-        total += distance * 1.0 / diff;
-  }
-    
-  // normalize
-  for(int i = 0; i < NUM_PARTICLES; i++) {
-     differencePercentage[i] = differencePercentage[i] / total;
-     particles_[i].prob = differencePercentage[i] / total;
+
+        // compute the distance to each seen beacon
+        for(int j = 0; j < beacons.size(); ++j) {
+           float distance = p.loc.getDistanceTo(beacons[j]->loc);
+           float observed = beacons[j]->visionDistance;
+           float diff = fabs(observed - distance);
+           p.prob += observed / (observed + diff); 
+           if (p.prob > 1) 
+                valueGreaterThan1 = true;
+           totalweight += p.prob;
+        }
   }
 
-
+  // only normalize if we got a value greater than 1
+  // normalize because we added probabilities of distances of 2 or more beacons
+  if (valueGreaterThan1) 
+  {
+      for(int i = 0; i < NUM_PARTICLES; ++i) 
+      {
+        particles_[i].prob /= total;
+      }
+  }
 }
 
 void LocalizationModule::copyParticles() {

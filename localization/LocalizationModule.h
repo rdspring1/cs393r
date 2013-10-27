@@ -14,6 +14,7 @@
 #include <memory/ProcessedSonarBlock.h>
 #include <memory/DelayedLocalizationBlock.h>
 #include <localization/Particle.h>
+#include <math/Geometry.h>
 
 #define RESAMPLE_FREQ 1
 #define RANDOM_WALK_FREQ 1
@@ -35,6 +36,9 @@ class LocalizationModule: public Module  {
   void randomWalkParticles();
   void copyParticles();
   void updateParticlesFromObservations();
+  void resample();
+  float getTotalFitness();
+  vector<WorldObject *> getBeacons();
   Particle particles_[NUM_PARTICLES];
   WorldObjectBlock* worldObjects;
   LocalizationBlock* localizationMem;

@@ -10,7 +10,7 @@ struct VisionPoint {
   bool isValid;
   
   VisionPoint* parent;
-  //uint16_t size; // size of the "tree"
+  uint16_t size; // size of the "tree"
   int position; // y position of the run
   int number; // number of run in that row/column
 

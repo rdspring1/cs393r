@@ -1,0 +1,154 @@
+#include <vision/GoalDetector.h>
+#define GOALTHRESHOLD 45
+#define SSQ 8
+
+GoalDetector::GoalDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier, BlobDetector*& blob_detector, LineDetector*& line_detector) : 
+  DETECTOR_INITIALIZE, classifier_(classifier), blob_detector_(blob_detector), line_detector_(line_detector) {
+}
+
+void GoalDetector::detectGoal()
+{
+	int imageX, imageY;
+	bool seen;
+	float radius;
+	WorldObject* goal = &vblocks_.world_object->objects_[WO_OPP_GOAL];
+	findGoal(imageX, imageY, seen, radius);
+	if(!goal->seen || radius > goal->radius)
+	{
+		goal->imageCenterX = imageX;
+		goal->imageCenterY = imageY;
+		goal->seen = seen;
+		goal->radius = radius;
+
+		Position p = cmatrix_.getWorldPosition(imageX, imageY);
+		goal->visionBearing = cmatrix_.bearing(p);
+		goal->visionElevation = cmatrix_.elevation(p);
+		goal->visionDistance = cmatrix_.groundDistance(p);
+	}
+}
+
+void GoalDetector::findGoal(int& imageX, int& imageY, bool& seen, float& radius)
+{
+  seen = false;
+  blob_detector_->formBlobs(c_BLUE);
+  double maxArea = 0.0;
+  BlobCollection blobs = blob_detector_->horizontalBlob[c_BLUE];
+  if(blobs.size() > 0) {
+    seen = true;
+    BlobCollection merged = blob_detector_->mergeBlobs(blobs, 8, 8);
+    //printf("found blue blobs %i blobs\n", blobs.size());
+    for(int i = 0; i < merged.size(); i++) {
+      Blob& b = merged[i];
+
+	double area = std::abs(b.xi - b.xf) * std::abs(b.yi - b.yf);
+      if (area > maxArea)
+      {
+         imageX = merged[i].avgX;
+         imageY = merged[i].avgY;
+         Position p = cmatrix_.getWorldPosition(blobs[i].avgX, blobs[i].avgY);
+         maxArea = area;
+	     radius = p.x;
+         //printf("*** blue X %2.2f  blueY %2.2f\n", p.x, p.y);
+      }
+      ///printf("blob %i is centered at %i, %i, in bounding box (%i,%i) to (%i,%i)\n",
+      ///i, b.avgX, b.avgY, b.xi, b.yi, b.xf, b.yf);
+     }//for
+   //radius = maxArea;
+   }	
+}
+
+/*void GoalDetector::findGoal(int& imageX, int& imageY, bool& seen, float& radius)
+{
+  seen = false;
+  blob_detector_->formBlobs(c_BLUE);
+  BlobCollection blobs = blob_detector_->horizontalBlob[c_BLUE];
+  if(blobs.size() > 0) {
+    seen = true;
+    //printf("found %i blobs\n", blobs.size());
+    for(int i = 0; i < blobs.size(); i++) {
+      Blob& b = blobs[i];
+      ///printf("blob %i is centered at %i, %i, in bounding box (%i,%i) to (%i,%i)\n",
+      ///i, b.avgX, b.avgY, b.xi, b.yi, b.xf, b.yf);
+    }
+  }
+  // set imageX, imageY, radius
+  
+	imageX = iparams_.width;
+	imageY = iparams_.height;
+	seen = false;
+	int maxgrid = -1;
+	float total = 0;
+	float max = iparams_.width * iparams_.height;
+	for(int y = 0; y < iparams_.height; y+=SSQ)
+	{
+		for(int x = 0; x < iparams_.width; x+=SSQ)
+		{
+			if(checkGridSquare(x, y))
+			{
+				seen = true;
+				
+				int ly = 1;
+				// Check Left-Side Grid Squares downward
+				for(int dy = y+SSQ; dy < iparams_.height && checkGridSquare(x, dy); dy+=SSQ)
+					++ly;
+
+				int lx = 1;
+				// Check Top Grid Squares moving to the right
+				for(int dx = x+SSQ; dx < iparams_.width && checkGridSquare(dx, y); dx+=SSQ)
+					++lx;
+
+				int ry = 1;
+				// Check Right-Side Grid Squares downward
+				for(int dy = y+SSQ; dy < iparams_.height && checkGridSquare(x + (lx - 1) * SSQ, dy); dy+=SSQ)
+					++ry;
+				
+				int rx = 1;
+				// Check Right-Side Grid Squares to the right
+				for(int dx = x+SSQ; dx < iparams_.width && checkGridSquare(dx, y + (ly - 1) * SSQ); dx+=SSQ)
+					++rx;
+
+				int maxX = std::max(lx, rx);
+				int maxY = std::max(ly, ry);
+				int grid = maxX * maxY;
+				if(grid > maxgrid)
+				{
+					maxgrid = grid;
+					imageX = x + (maxX / 2) * SSQ;
+					imageY = y + (maxY / 2) * SSQ;
+				}	
+			}
+		}
+	}
+	radius = numBlue() / max;	
+}*/
+
+float GoalDetector::numBlue()
+{
+	float size = 0;
+	for(int x = 0; x < iparams_.width; ++x)
+	{
+		for(int y = 0; y < iparams_.height; ++y)
+		{
+			if(getSegPixelValueAt(x,y) == c_BLUE)
+				++size;
+		}
+	}		
+	return size;
+}
+
+bool GoalDetector::checkGridSquare(const int& x, const int& y)
+{
+	int total = 0;
+	for(int sx = 0; sx < SSQ; ++sx)
+	{
+		for(int sy = 0; sy < SSQ; ++sy)
+		{
+			if(getSegPixelValueAt(sx+x,sy+y) == c_BLUE)
+				++total;
+		}
+	}
+	
+	if(total >= GOALTHRESHOLD)
+		return true;
+	return false;
+}		

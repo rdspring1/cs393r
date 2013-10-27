@@ -6,6 +6,7 @@
 #include <vision/ObjectDetector.h>
 #include <vision/Classifier.h>
 #include <vision/structures/BallCandidate.h>
+#include <vision/KalmanFilter.h>
 
 class BallDetector : public ObjectDetector {
  public:
@@ -14,6 +15,7 @@ class BallDetector : public ObjectDetector {
   void init(TextLogger* tl){textlogger = tl;};
   BallCandidate candidates[MAX_BALL_CANDS];
   int candidateCount;
+  KalmanFilter kfilter; //kalman filter
  private:
   void findBall(int& imageX, int& imageY, bool& seen, float& xc, float& yc, float& radius);
   bool checkGridSquare(const int& x, const int& y);

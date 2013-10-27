@@ -41,7 +41,7 @@ class Classifier {
   void changeChildren(VisionPoint *run, VisionPoint *root);
   bool setImagePointers();
   VisionPoint * root(VisionPoint *run); // Get the root of a run(vision point)
-  void unionOfRuns(VisionPoint *run1, VisionPoint *run2); // Union of two runs
+  void unionOfRuns(VisionPoint *run1, VisionPoint *run2, int color); // Union of two runs
   const VisionBlocks& vblocks_;
   const VisionParams& vparams_;
   const ImageParams& iparams_;

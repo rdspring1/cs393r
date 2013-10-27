@@ -1,0 +1,182 @@
+#include <vision/LineDetector.h>
+#include <math.h>
+#define LINETHRESHOLD 100
+#define SSQ 8
+
+LineDetector::LineDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier, BlobDetector*& blob_detector) :
+  DETECTOR_INITIALIZE, classifier_(classifier), blob_detector_(blob_detector) {
+  FieldLinesCounter = 0;
+  fieldLines = new FieldLine * [MAX_FIELDLINES];
+  for (int i = 0; i < MAX_FIELDLINES; i++) {
+    fieldLines[i] = new FieldLine();
+    fieldLines[i]->id = i;
+    fieldLines[i]->TranPointsArray = new LinePoint * [MAX_POINTS_PER_LINE];
+    fieldLines[i]->PointsArray = new LinePoint * [MAX_POINTS_PER_LINE];
+
+    for (int j = 0; j < MAX_POINTS_PER_LINE; j++)
+      fieldLines[i]->TranPointsArray[j] = new LinePoint();
+
+    for (int j = 0; j < MAX_POINTS_PER_LINE; j++)
+      fieldLines[i]->PointsArray[j] = new LinePoint();
+  }
+}
+
+void LineDetector::detectLine1()
+{
+	int imageX, imageY;
+	bool seen;
+	float radius;
+	WorldObject* penaltyLine = &vblocks_.world_object->objects_[WO_OPP_PENALTY];
+	findPenaltyLine(imageX, imageY, seen, radius);
+	if(!penaltyLine->seen)
+	{
+		penaltyLine->imageCenterX = imageX;
+		penaltyLine->imageCenterY = imageY;
+		penaltyLine->seen = seen;
+		penaltyLine->radius = radius;
+
+		Position p = cmatrix_.getWorldPosition(imageX, imageY);
+		penaltyLine->visionBearing = cmatrix_.bearing(p);
+		penaltyLine->visionElevation = cmatrix_.elevation(p);
+		penaltyLine->visionDistance = cmatrix_.groundDistance(p);
+	}
+
+}
+
+void LineDetector::findPenaltyLine(int& imageX, int& imageY, bool& seen, float& radius)
+{
+  seen = false;
+  blob_detector_->formBlobs(c_YELLOW);
+  double maxArea = 0.0;
+  int robotx = 160;
+  int roboty = 240;
+  float minDistance = 400.0; 
+  float area = 0.0;
+  BlobCollection& merged = blob_detector_->horizontalBlob[c_YELLOW];
+  if(merged.size() > 0) 
+  {
+    int xi, yi, xf, yf;
+    
+    //printf("found white blobs %i blobs\n", merged.size());
+    for(int i = 0; i < merged.size(); i++) {
+      Blob& b = merged[i];
+      
+      double area = std::abs(b.xi - b.xf) * std::abs(b.yi - b.yf);
+      //printf("found white blob at %i %i\n", b.avgX, b.avgY);
+
+       float distance = pow(robotx*1.0 - b.avgX, 2) + pow(roboty*1.0 - b.avgY, 2);
+        distance = sqrt(distance);
+        
+        //cout << b.avgX << " " << b.avgY << " " << distance << endl;
+
+        if (b.avgY < 200 && distance < minDistance)
+	{
+    	    seen = true;
+            minDistance = distance;
+            imageX = b.avgX;
+            imageY = b.avgY;
+            area = abs(b.xi - b.xf) * abs(b.yi-b.yf);
+            radius = area;
+            ///cout << "area " << area << endl;
+            xi = b.xi;
+            xf = b.xf;
+            yi = b.yi;
+            yf = b.yf;
+            //cout << "Closest center " << imageX << " " << imageY << " " << minDistance << endl;
+        }
+     }//for
+    radius = abs(xi-xf)*abs(yi-yf);
+    //cout << "** X: " << imageX << " Y: " << imageY << " Xi: " << xi << " Yi " << yi << " Xf: " << xf << " Yf " << yf << endl;
+    //radius = area;
+    //cout << "Closest center " << imageX << " " << imageY << " " << minDistance << " xi: " <<xi <<" xf: "<<xf<<" yi: "<<yi<<" yf: "<<yf<<" area: "<<radius<< endl;
+  }	
+}
+
+
+/*void LineDetector::findPenaltyLine(int& imageX, int& imageY, bool& seen, float& radius)
+{
+    seen = false;
+	imageX = iparams_.width;
+	imageY = iparams_.height;
+	int maxgrid = -1;
+	float total = 0;
+	float max = iparams_.width * iparams_.height;
+	for(int y = 0; y < iparams_.height; y+=SSQ)
+	{
+		for(int x = 0; x < iparams_.width; x+=SSQ)
+		{
+			if(checkGridSquare(x, y))
+			{
+				seen = true;
+				
+				int ly = 1;
+				// Check Left-Side Grid Squares downward
+				for(int dy = y+SSQ; dy < iparams_.height && checkGridSquare(x, dy); dy+=SSQ)
+					++ly;
+
+				int lx = 1;
+				// Check Top Grid Squares moving to the right
+				for(int dx = x+SSQ; dx < iparams_.width && checkGridSquare(dx, y); dx+=SSQ)
+					++lx;
+
+				int ry = 1;
+				// Check Right-Side Grid Squares downward
+				for(int dy = y+SSQ; dy < iparams_.height && checkGridSquare(x + (lx - 1) * SSQ, dy); dy+=SSQ)
+					++ry;
+				
+				int rx = 1;
+				// Check Right-Side Grid Squares to the right
+				for(int dx = x+SSQ; dx < iparams_.width && checkGridSquare(dx, y + (ly - 1) * SSQ); dx+=SSQ)
+					++rx;
+
+				int maxX = std::max(lx, rx);
+				int maxY = std::max(ly, ry);
+				int grid = maxX * maxY;
+				if(grid > maxgrid)
+				{
+					maxgrid = grid;
+					imageX = x + (maxX / 2) * SSQ;
+					imageY = y + (maxY / 2) * SSQ;
+				}	
+			}
+		}
+	}
+	radius = numWhite() / max;	
+}*/
+
+
+bool LineDetector::checkGridSquare(const int& x, const int& y)
+{
+	int total = 0;
+	for(int sx = 0; sx < SSQ; ++sx)
+	{
+		for(int sy = 0; sy < SSQ; ++sy)
+		{
+			if(getSegPixelValueAt(sx+x,sy+y) == c_WHITE)
+				++total;
+		}
+	}
+	
+	if(total >= LINETHRESHOLD)
+		return true;
+	return false;
+}		
+
+float LineDetector::numWhite()
+{
+	float size = 0;
+	for(int x = 0; x < iparams_.width; ++x)
+	{
+		for(int y = 0; y < iparams_.height; ++y)
+		{
+			if(getSegPixelValueAt(x,y) == c_WHITE)
+				++size;
+		}
+	}		
+	return size;
+}
+
+
+
+
+

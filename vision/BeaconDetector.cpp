@@ -118,9 +118,10 @@ void BeaconDetector::classifyBeacons()
 			wo->fromTopCamera = c.fromTopCamera;
 			wo->seen = true;
 			Position p = cmatrix_.getWorldPosition(wo->imageCenterX, wo->imageCenterY);
-			wo->visionDistance = cmatrix_.groundDistance(p);
-			float d = cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
-			cout << "VISION GROUND DISTANCE " << d << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << " CenterX " << wo->imageCenterX << " CenterY " << wo->imageCenterY << endl;
+			wo->visionDistance = cmatrix_.getWorldDistanceByHeight(c.height, 200.0); //cmatrix_.groundDistance(p); //cmatrix_.getWorldDistanceByHeight(c.height, 200.0);
+            wo->visionBearing = cmatrix_.bearing(p);
+
+			cout << "VISION GROUND DISTANCE " << wo->visionDistance << " TOPCOLOR: " << COLOR_NAME(c.topColor) << " BOTTOMCOLOR: " << COLOR_NAME(c.bottomColor) << " CenterX " << wo->imageCenterX << " CenterY " << wo->imageCenterY << endl;
 		}
 	}
 }
