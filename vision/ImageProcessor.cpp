@@ -1,9 +1,6 @@
 #include "ImageProcessor.h"
 #include <iostream>
 
-#define XTHRESHOLD 10
-#define YTHRESHOLD 10
-
 ImageProcessor::ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams, Camera::Type camera) :
   vblocks_(vblocks), iparams_(iparams), camera_(camera), cmatrix_(iparams_, camera), calibration_(NULL)
 {
@@ -15,7 +12,6 @@ ImageProcessor::ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams
   ball_detector_ = new BallDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
   robot_detector_ = new RobotDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
   cross_detector_ = new CrossDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
-  beacon_detector_ = new BeaconDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
 }
 
 void ImageProcessor::init(TextLogger* tl){
@@ -28,7 +24,6 @@ void ImageProcessor::init(TextLogger* tl){
   ball_detector_->init(tl);
   robot_detector_->init(tl);
   cross_detector_->init(tl);
-  beacon_detector_->init(tl);
 }
 
 unsigned char* ImageProcessor::getImg() {
@@ -101,6 +96,7 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 }
 
 void ImageProcessor::processFrame(){
+<<<<<<< HEAD
     updateTransform();
     bool topCamera = false;
     if(camera_ == Camera::TOP)
@@ -113,6 +109,10 @@ void ImageProcessor::processFrame(){
     //std::cout << "-----------------------------------------------------" << std::endl;
     beacon_detector_->detectBeacon(topCamera);
     //std::cout << "-----------------------------------------------------" << std::endl;
+=======
+  updateTransform();
+  classifier_->classifyImage(color_table_);
+>>>>>>> 2a3dcdf948dddfc5f02e3e8efb07c4ef1382bff6
 }
 
 void ImageProcessor::SetColorTable(unsigned char* table) {
