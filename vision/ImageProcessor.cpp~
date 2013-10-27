@@ -28,6 +28,7 @@ void ImageProcessor::init(TextLogger* tl){
   ball_detector_->init(tl);
   robot_detector_->init(tl);
   cross_detector_->init(tl);
+  beacon_detector_->init(tl);
 }
 
 unsigned char* ImageProcessor::getImg() {
@@ -108,8 +109,13 @@ void ImageProcessor::processFrame(){
     classifier_->classifyImage(color_table_);
     classifier_->constructRuns();
     classifier_->mergeRuns();
+
+    blob_detector_->formBlobs(c_PINK);
+    blob_detector_->formBlobs(c_YELLOW); // YELLOW -> ORANGE
+	blob_detector_->formBlobs(c_BLUE); // BLUE -> FIELD_GREEN
+
     //std::cout << "-----------------------------------------------------" << std::endl;
-    beacon_detector_->detectBeacon(topCamera);
+    //beacon_detector_->detectBeacon(topCamera);
     //std::cout << "-----------------------------------------------------" << std::endl;
 }
 

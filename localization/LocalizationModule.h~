@@ -34,7 +34,7 @@ class LocalizationModule: public Module  {
   void setParticleProbabilities(float newProb);
   void randomWalkParticles();
   void copyParticles();
-  void updateParticlesFromObservations();
+  //void updateParticlesFromObservations();
   Particle particles_[NUM_PARTICLES];
   WorldObjectBlock* worldObjects;
   LocalizationBlock* localizationMem;

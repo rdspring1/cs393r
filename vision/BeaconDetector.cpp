@@ -61,7 +61,6 @@ void BeaconDetector::removeNonBeacons()
 			BeaconCandidate& c = candidates[j];
 			if(i != j && isOverlapping(s.centerX, s.yf, c.xi, c.xf, c.yi, c.yf))
 			{
-				//cout << "**** centerX: " << s.centerX << " s.yf " << s.yf << " c.xi " << c.xi << " c.xf " << c.xf << " c.yi " << c.yi << " c.yf " << c.yf << endl; 
 				s.valid = false;
 				c.valid = false;
 				continue;

@@ -128,8 +128,8 @@ void BlobDetector::formBlobs(Color blobColor) {
 					b.dy = dy;
 					b.correctPixelRatio = ratio;
 					b.numCorrectColorPixels = numCorrectColorPixels;
-					b.avgX = sumX / children.size();
-					b.avgY = sumY / children.size();
+					b.avgX = xi + dx / 2;
+					b.avgY = yi + dy / 2;
 					assert(b.xi + b.dx - 1< iparams_.width);
 					assert(b.xf < iparams_.width);
 					assert(b.yi + b.dy - 1 < iparams_.height);
@@ -140,7 +140,7 @@ void BlobDetector::formBlobs(Color blobColor) {
 					assert(b.dy > 0);
 					assert(b.correctPixelRatio > 0);
 					assert(b.numCorrectColorPixels > 0);
-					//cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
+
 					horizontalBlob[hbpos].push_back(b);
 				}
 			}

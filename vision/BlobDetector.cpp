@@ -75,7 +75,7 @@ void BlobDetector::formBlobs(Color blobColor) {
 	horizontalBlob[hbpos].clear();
 	int numBlobs = 0;
 	int numBlobs2 = 0;
-	for (int y = 0; y < iparams_.height; ++y) {
+	for (int y = 0; y < iparams_.height; y+=2) {
 		int numRuns = classifier_->horizontalPointCount[blobColor][y];
 
 		for (int i = 0; i < numRuns; ++i) {
@@ -140,7 +140,7 @@ void BlobDetector::formBlobs(Color blobColor) {
 					assert(b.dy > 0);
 					assert(b.correctPixelRatio > 0);
 					assert(b.numCorrectColorPixels > 0);
-					//cout << "xi " << b.xi << " yi " << b.yi << " xf " << b.xf << " yf " << b.yf << " dx " << b.dx << " dy " << b.dy << endl;
+
 					horizontalBlob[hbpos].push_back(b);
 				}
 			}
