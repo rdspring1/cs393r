@@ -1,7 +1,18 @@
 #include <localization/LocalizationModule.h>
 #include <cmath>
+#include <iostream>
+#include <algorithm>
+using namespace std;
 
-void LocalizationModule::specifyMemoryDependency() {
+#define RAND_THRESHOLD 40
+#define RESAMPLE_RATE 2
+#define RWALK_RATE 5
+#define GOOD_DISTANCE_DIFF_THRESH 0.15
+#define MED_DISTANCE_DIFF_THRESH 0.50
+#define VISION_BEARING 75.0
+
+void LocalizationModule::specifyMemoryDependency() 
+{
   requiresMemoryBlock("world_objects");
   requiresMemoryBlock("localization");
   requiresMemoryBlock("team_packets");
@@ -15,7 +26,8 @@ void LocalizationModule::specifyMemoryDependency() {
   requiresMemoryBlock("delayed_localization");
 }
 
-void LocalizationModule::specifyMemoryBlocks() {
+void LocalizationModule::specifyMemoryBlocks() 
+{
   getOrAddMemoryBlock(worldObjects,"world_objects");
   getOrAddMemoryBlock(localizationMem,"localization");
   getOrAddMemoryBlock(teamPacketsMem,"team_packets");
@@ -30,8 +42,10 @@ void LocalizationModule::specifyMemoryBlocks() {
 }
 
 
-void LocalizationModule::initSpecificModule(){
-  for(int i = 0; i < NUM_PARTICLES; i++) {
+void LocalizationModule::initSpecificModule()
+{
+  for(int i = 0; i < NUM_PARTICLES; i++) 
+  {
     Particle& p = particles_[i];
     p.loc.x = 0;
     p.loc.y = 0;
@@ -42,111 +56,181 @@ void LocalizationModule::initSpecificModule(){
   copyParticles();
 }
 
-void LocalizationModule::processFrame() {
+void LocalizationModule::processFrame() 
+{
   int frameID = frameInfo->frame_id;
+
   // 1. Update particles from observations
-    updateParticlesFromObservations();
+  updateParticlesFromOdometry();
+  updateParticlesFromObservations();
 
   // 2. If this is a resampling frame, resample
-  //resample();
+  // resample every 5 frames
+  if (frameID % RESAMPLE_RATE == 0) 
+  {
+     resample();
+  }
+
   // 3. Update the robot's pose
+  updatePose();
+
   // 4. If this is a random walk frame, random walk
+  if (frameID % RWALK_RATE == 0) 
+  {
+     randomWalkParticles();
+  }
+
   // 5. Copy particles to localization memory:
   copyParticles();  
 }
 
-float LocalizationModule::getTotalFitness() {
+// Calculates the total weight of all the particles
+float LocalizationModule::getTotalFitness() 
+{
     float total = 0.0f;
-    for(int i = 0; i < NUM_PARTICLES; i++) {
+    for(int i = 0; i < NUM_PARTICLES; i++) 
+    {
         total += particles_[i].prob;
     }
-
     return total;
 }
 
-void LocalizationModule::resample() {
-   float totalFitness = getTotalFitness();
-   float c[NUM_PARTICLES];
-   c[0] = particles_[0].prob;
+void LocalizationModule::resample() 
+{
+    float totalFitness = getTotalFitness();
+    float c[NUM_PARTICLES];
 
-   float p = totalFitness *1.0 / NUM_PARTICLES;
-   Particle particlescpy[NUM_PARTICLES] = particles_;
-   float start = (float)rand()/((float)RAND_MAX/(p)); // indicates where the first pointer will start
+    float p = totalFitness * 1.0f / NUM_PARTICLES;
+    Particle particlescpy[NUM_PARTICLES] = particles_;
+    int randnum = rand() % RAND_THRESHOLD;
+    float randfraction = randnum * 1.0f / RAND_THRESHOLD;
+    float start = randfraction * p; // indicates where the first pointer will start
+    //float start = (float)rand() / ((float)RAND_MAX/(p)); 
 
-   for (int i = 1; i < NUM_PARTICLES; ++i) {
-      c[i] = c[i-1] + particles_[i].prob;
+    c[0] = particles_[0].prob;
+    for (int i = 1; i < NUM_PARTICLES; ++i) 
+    {
+        c[i] = c[i-1] + particles_[i].prob;
     }
-  int i = 0;
-  float u = start;
-  for (int j = 0; j < NUM_PARTICLES; ++j) {
-     while (u > c[i])
-        i++;
-    // add particle
-    particles_[j] = particlescpy[i];
-    u +=  p;
-  } 
+
+    int i = 0;
+    float u = start;
+    for (int j = 0; j < NUM_PARTICLES; ++j) {
+         while (u > c[i])
+         {
+            i++;
+         }
+        // add particle
+        particles_[j] = particlescpy[i];
+        u += p;
+    } 
 }
 
 vector<WorldObject *> LocalizationModule::getBeacons() {
-    vector<WorldObject *> beacons;
-
-    WorldObject& wo = worldObjects->objects_[WO_BEACON_PINK_YELLOW];
-   /* if (wo.seen)
-       beacons.push_back(&wo);
-    wo =worldObjects->objects_[WO_BEACON_PINK_BLUE];
-     if (wo.seen)
-       beacons.push_back(&wo);
-    wo = worldObjects->objects_[WO_BEACON_YELLOW_PINK];
-     if (wo.seen)
-       beacons.push_back(&wo);*/
-    wo = worldObjects->objects_[WO_BEACON_YELLOW_BLUE]; 
-    wo.visionDistance = 1500/2;
-     //if (wo.seen)
-       beacons.push_back(&wo);
-   /*wo = worldObjects->objects_[WO_BEACON_BLUE_YELLOW];
-     if (wo.seen)
-       beacons.push_back(&wo);
-    wo = worldObjects->objects_[WO_BEACON_BLUE_PINK]; 
-*/
+    vector<WorldObject*> beacons;
+    if (worldObjects->objects_[WO_BEACON_PINK_YELLOW].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_PINK_YELLOW]);
+    }
+    if (worldObjects->objects_[WO_BEACON_PINK_BLUE].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_PINK_BLUE]);
+    }
+    if (worldObjects->objects_[WO_BEACON_YELLOW_PINK].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_YELLOW_PINK]);
+    }
+    if (worldObjects->objects_[WO_BEACON_YELLOW_BLUE].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_YELLOW_BLUE]);
+    }
+    if (worldObjects->objects_[WO_BEACON_BLUE_YELLOW].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_BLUE_YELLOW]);
+    }
+    if (worldObjects->objects_[WO_BEACON_BLUE_PINK].seen)
+    {
+       beacons.push_back(&worldObjects->objects_[WO_BEACON_BLUE_PINK]);
+    }
     return beacons;
 }
 
 
-void LocalizationModule::updateParticlesFromObservations() {
-    vector<WorldObject*> beacons = getBeacons();
-    float totalweight = 0.0;
-    bool valueGreaterThan1 = false;
-    for(int i = 0; i < NUM_PARTICLES; i++) {
-        Particle& p = particles_[i];
-
-        // compute the distance to each seen beacon
-        for(int j = 0; j < beacons.size(); ++j) {
-           float distance = p.loc.getDistanceTo(beacons[j]->loc);
-           float observed = beacons[j]->visionDistance;
-           float diff = fabs(observed - distance);
-           p.prob += observed / (observed + diff); 
-           if (p.prob > 1) 
-                valueGreaterThan1 = true;
-           totalweight += p.prob;
-        }
-  }
-
-  // only normalize if we got a value greater than 1
-  // normalize because we added probabilities of distances of 2 or more beacons
-  if (valueGreaterThan1) 
-  {
-      for(int i = 0; i < NUM_PARTICLES; ++i) 
-      {
-        particles_[i].prob /= totalweight;
-      }
-  }
+float LocalizationModule::maxProb() 
+{
+    float max = 0.0f;
+    for (int i = 0; i < NUM_PARTICLES; ++i) 
+    {
+        max = std::max(max, particles_[i].prob);
+    }
+    return max;
 }
 
-void LocalizationModule::copyParticles() {
+void LocalizationModule::normalize() {
+    float max = maxProb();
+    for (int i = 0; i < NUM_PARTICLES; ++i) 
+    {
+        particles_[i].prob /= max;
+        //cout << "*** prob " << particles_[i].prob << " x " << particles_[i].loc.x << " y " << particles_[i].loc.y << endl;
+    }
+}
+
+void LocalizationModule::updateParticlesFromObservations() {
+    vector<WorldObject*> beacons = getBeacons();
+    //cout << "*** NUM beacons " << beacons.size() << endl;
+    for(int i = 0; i < NUM_PARTICLES; i++) {
+        Particle& p = particles_[i];
+ 
+        // compute the distance to each seen beacon
+        for(size_t j = 0; j < beacons.size(); ++j) {
+           float distance = p.loc.getDistanceTo(beacons[j]->loc);
+           float observed = beacons[j]->visionDistance;
+           float diff = fabs(observed - distance); // difference between the observed distance and the distance from the particle
+
+           // check the angle of the particle to the beacon
+           Pose2D bPose(0, beacons[j]->loc.x, beacons[j]->loc.y);
+           Pose2D pPose(p.theta, p.loc.x, p.loc.y);
+           Pose2D bPoseRel = bPose.globalToRelative(pPose);
+           AngRad relBearing = atan2f(bPoseRel.translation.y, bPoseRel.translation.x);
+
+           if (diff / distance < GOOD_DISTANCE_DIFF_THRESH) 
+           {
+                // if the relBearing is greater than 150, the beacon is not in our range of vision
+                if (relBearing > (VISION_BEARING * M_PI / 180.0)) {
+                  p.degradeProbability(0.7);
+                }
+                else 
+                {
+                  p.degradeProbability(1.1);
+                }
+           }
+           else if (diff / distance < MED_DISTANCE_DIFF_THRESH)
+           {
+               // degrade 30%, or degrade proportional to the distance difference?
+               if (relBearing > (VISION_BEARING * M_PI / 180.0)) {
+                  p.degradeProbability(0.7);
+                }
+               else
+                {
+                p.degradeProbability(0.8);
+               }
+           }
+           else 
+           {
+                p.degradeProbability(0.6);
+           }
+        }
+    }
+    normalize(); //normalize so that we always have a value with 1.0 probability
+}
+
+void LocalizationModule::copyParticles() 
+{
   memcpy(localizationMem->particles, particles_, NUM_PARTICLES * sizeof(Particle));
 }
 
-void LocalizationModule::updateParticlesFromOdometry() {
+void LocalizationModule::updateParticlesFromOdometry() 
+{
   Pose2D disp = odometry->displacement;
   for(int i = 0; i < NUM_PARTICLES; i++) {
     Particle& p = particles_[i];
@@ -155,8 +239,10 @@ void LocalizationModule::updateParticlesFromOdometry() {
   }
 }
 
-void LocalizationModule::resetParticles(){
-  for (int i = 0; i < NUM_PARTICLES; i++){
+void LocalizationModule::resetParticles()
+{
+  for (int i = 0; i < NUM_PARTICLES; i++)
+  {
     Particle& p = particles_[i];
     p.prob = 1.0f;
     p.placeRandomly();
@@ -195,6 +281,21 @@ void LocalizationModule::randomWalkParticles() {
 }
 
 void LocalizationModule::updatePose() {
-  WorldObject& self = worldObjects->objects_[robotState->WO_SELF];
-  // Compute a weighted average of the particles to fill in your location
+    WorldObject& self = worldObjects->objects_[robotState->WO_SELF];
+    // Compute a weighted average of the particles to fill in your location
+    float x = 0.0f;
+    float y = 0.0f;
+    float bearing = 0.0f;
+    for (int i = 0; i < NUM_PARTICLES; ++i) 
+    {
+        float weight = particles_[i].prob;
+        x += weight * particles_[i].loc.x;
+        y += weight * particles_[i].loc.y;
+        bearing += weight * particles_[i].theta;
+    }
+
+   float total = getTotalFitness();
+   self.loc.x = x / total;
+   self.loc.y = y / total;
+   self.bearing = bearing / total;
 }
