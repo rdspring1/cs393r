@@ -6,10 +6,13 @@ using namespace std;
 
 #define RAND_THRESHOLD 40
 #define RESAMPLE_RATE 2
-#define RWALK_RATE 5
-#define GOOD_DISTANCE_DIFF_THRESH 0.15
-#define MED_DISTANCE_DIFF_THRESH 0.50
-#define VISION_BEARING 75.0
+#define RWALK_RATE 3
+#define GOOD_DISTANCE_DIFF_THRESH 0.25f
+#define MED_DISTANCE_DIFF_THRESH 0.50f
+#define VISION_BEARING 75.0f
+#define MIN_RAND_WALK 0.10f
+#define NEW_RAND_WALK 0.60f
+#define RESET_FRAME 1000
 
 void LocalizationModule::specifyMemoryDependency() 
 {
@@ -58,30 +61,36 @@ void LocalizationModule::initSpecificModule()
 
 void LocalizationModule::processFrame() 
 {
-  int frameID = frameInfo->frame_id;
+    int frameID = frameInfo->frame_id;
 
-  // 1. Update particles from observations
-  updateParticlesFromOdometry();
-  updateParticlesFromObservations();
+    // Fail-Safe
+    if (frameID % RESET_FRAME == 0) 
+    {
+        resetParticles();
+    }
 
-  // 2. If this is a resampling frame, resample
-  // resample every 5 frames
-  if (frameID % RESAMPLE_RATE == 0) 
-  {
-     resample();
-  }
+    // Update particles from observations
+    updateParticlesFromOdometry();
+    updateParticlesFromObservations();
 
-  // 3. Update the robot's pose
-  updatePose();
+    // If this is a resampling frame, resample
+    // resample every 5 frames
+    if (frameID % RESAMPLE_RATE == 0) 
+    {
+        resample();
+    }
 
-  // 4. If this is a random walk frame, random walk
-  if (frameID % RWALK_RATE == 0) 
-  {
-     randomWalkParticles();
-  }
+    // Update the robot's pose
+    updatePose();
 
-  // 5. Copy particles to localization memory:
-  copyParticles();  
+    // If this is a random walk frame, random walk
+    if (frameID % RWALK_RATE == 0) 
+    {
+        randomWalkParticles();
+    }
+
+    // Copy particles to localization memory:
+    copyParticles();  
 }
 
 // Calculates the total weight of all the particles
@@ -105,7 +114,6 @@ void LocalizationModule::resample()
     int randnum = rand() % RAND_THRESHOLD;
     float randfraction = randnum * 1.0f / RAND_THRESHOLD;
     float start = randfraction * p; // indicates where the first pointer will start
-    //float start = (float)rand() / ((float)RAND_MAX/(p)); 
 
     c[0] = particles_[0].prob;
     for (int i = 1; i < NUM_PARTICLES; ++i) 
@@ -171,12 +179,22 @@ void LocalizationModule::normalize() {
     for (int i = 0; i < NUM_PARTICLES; ++i) 
     {
         particles_[i].prob /= max;
-        //cout << "*** prob " << particles_[i].prob << " x " << particles_[i].loc.x << " y " << particles_[i].loc.y << endl;
+       // cout << "*** prob " << particles_[i].prob << " x " << particles_[i].loc.x << " y " << particles_[i].loc.y << endl;
     }
+}
+
+float LocalizationModule::variance() {
+    float mean = getTotalFitness() / NUM_PARTICLES;
+    float variance = 0.0f;
+    for (int i = 0; i < NUM_PARTICLES; ++i) {
+       variance = pow((particles_[i].prob - mean), 2) / NUM_PARTICLES;
+    }
+    return variance;
 }
 
 void LocalizationModule::updateParticlesFromObservations() {
     vector<WorldObject*> beacons = getBeacons();
+    float countFarAvg = 0.0f;
     //cout << "*** NUM beacons " << beacons.size() << endl;
     for(int i = 0; i < NUM_PARTICLES; i++) {
         Particle& p = particles_[i];
@@ -196,31 +214,27 @@ void LocalizationModule::updateParticlesFromObservations() {
            if (diff / distance < GOOD_DISTANCE_DIFF_THRESH) 
            {
                 // if the relBearing is greater than 150, the beacon is not in our range of vision
-                if (relBearing > (VISION_BEARING * M_PI / 180.0)) {
-                  p.degradeProbability(0.7);
+                if (fabs(relBearing) > (VISION_BEARING * M_PI / 180.0)) {
+                  p.degradeProbability(0.75);
                 }
                 else 
                 {
-                  p.degradeProbability(1.1);
+                  p.degradeProbability(1.0);
                 }
-           }
-           else if (diff / distance < MED_DISTANCE_DIFF_THRESH)
-           {
-               // degrade 30%, or degrade proportional to the distance difference?
-               if (relBearing > (VISION_BEARING * M_PI / 180.0)) {
-                  p.degradeProbability(0.7);
-                }
-               else
-                {
-                p.degradeProbability(0.8);
-               }
            }
            else 
            {
-                p.degradeProbability(0.6);
+                countFarAvg++;
+                p.degradeProbability(0.5);
            }
         }
     }
+    //averageDistanceDiff = fabs(observed - averageDistance);
+    countFarAvg /= (NUM_PARTICLES * beacons.size());
+    if(countFarAvg > 0.7)
+        areFar = true;
+    else
+        areFar = false;
     normalize(); //normalize so that we always have a value with 1.0 probability
 }
 
@@ -270,14 +284,17 @@ void LocalizationModule::randomWalkParticles() {
     // move them in opposite directions on this vector, based on their prob
     float p1Ratio = 1.0 - part1.prob;
     float p2Ratio = 1.0 - part2.prob;
-
-    float p1AngleRatio = p1Ratio;
-    float p2AngleRatio = p2Ratio;
+    p1Ratio = (p1Ratio < MIN_RAND_WALK) ? NEW_RAND_WALK : p1Ratio; 
+    p2Ratio = (p2Ratio < MIN_RAND_WALK) ? NEW_RAND_WALK : p2Ratio;
+        
+    float p1AngleRatio = 1.0 - part1.prob;
+    float p2AngleRatio = 1.0 - part2.prob;
+    p1Ratio = (p1Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p1Ratio; 
+    p2Ratio = (p2Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p2Ratio;
 
     part1.move(dPos*p1Ratio, p1AngleRatio*dAng);
     part2.move(-dPos*p2Ratio,p2AngleRatio*-dAng);
-
-  }
+    }
 }
 
 void LocalizationModule::updatePose() {
@@ -294,8 +311,12 @@ void LocalizationModule::updatePose() {
         bearing += weight * particles_[i].theta;
     }
 
+   Point2D origin;
    float total = getTotalFitness();
    self.loc.x = x / total;
    self.loc.y = y / total;
-   self.bearing = bearing / total;
+   self.orientation = bearing / total;
+   self.visionConfidence = variance();
+   self.visionDistance = self.loc.getDistanceTo(origin);
+   self.visionBearing = self.loc.getBearingTo(origin, Deg2Rad(self.orientation));
 }

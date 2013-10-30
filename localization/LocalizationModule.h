@@ -40,6 +40,7 @@ class LocalizationModule: public Module  {
   float getTotalFitness();
   void normalize();
   float maxProb();
+  float variance();
   
   vector<WorldObject *> getBeacons();
   Particle particles_[NUM_PARTICLES];
@@ -53,6 +54,7 @@ class LocalizationModule: public Module  {
   JointBlock* jointAngles;
   BehaviorBlock* behaviorMem;
   ProcessedSonarBlock* processedSonar;
+  bool areFar;
   DelayedLocalizationBlock* delayedLocalization;
 };
 

@@ -3,7 +3,7 @@ import commands, core, head, util, pose
 import time
 import math
 
-CTHRESHOLD = 0.80
+CTHRESHOLD = 20
 BTHRESHOLD = math.radians(10)
 DTHRESHOLD = 50
 kp = 0.2
@@ -25,21 +25,29 @@ class Choices:
   NumChoices = 4
 
 class ChooseNode(Node):
+  def __init__(self):
+     super(ChooseNode, self).__init__()
+     self.task = head.Scan(maxPan = 2.0, period = 7.0, numSweeps = 1, direction = 1)
+
   def run(self):
     robot = core.world_objects.getObjPtr(core.robot_state.WO_SELF)
     print "Current Location X: %d Y: %d" % (robot.loc.x, robot.loc.y, )
     print "Confidence: " + str(robot.visionConfidence)
+    print "Distance: " + str(robot.visionDistance)
+    print "Bearing: " + str(robot.visionBearing)
     commands.stand()
-    if robot.visionConfidence < CTHRESHOLD:
-        self.postSignal(Choices.Localize)
-    #elif robot.visionBearing > BTHRESHOLD and (2 * math.pi - robot.visionBearing) > BTHRESHOLD:
-    #    commands.setWalkVelocity(0.0, 0.0, kp * robot.visionBearing)
-    #elif robot.visionDistance > DTHRESHOLD:
-	     #commands.setWalkVelocity(kp * robot.visionDistance, 0.0, 0.0)
+    if robot.visionConfidence > CTHRESHOLD:
+        print "Localization"
+        self.task.processFrame()
+    elif robot.visionBearing > BTHRESHOLD and (2 * math.pi - robot.visionBearing) > BTHRESHOLD:
+        print "Vision Bearing"
+        commands.setWalkVelocity(0.0, 0.0, kp * robot.visionBearing)
+    elif robot.visionDistance > DTHRESHOLD:
+        print "Distance"
+        commands.setWalkVelocity(kp * robot.visionDistance, 0.0, 0.0)
     else:
        commands.stand()
        print "Localization Complete"
-       core.speech.say("Localization Complete")
 
 class LocalizeNode(Node):
   def __init__(self):
@@ -48,7 +56,7 @@ class LocalizeNode(Node):
 
   def run(self):
      self.task.processFrame()
-     if self.task.finished() or self.getTime() > 20:
+     if self.task.finished():
         print "Scan Head"
         self.postSuccess()
 

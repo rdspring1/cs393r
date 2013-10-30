@@ -39,6 +39,9 @@ class LocalizationModule: public Module  {
   void resample();
   float getTotalFitness();
   void normalize();
+  float maxProb();
+  float variance();
+  
   vector<WorldObject *> getBeacons();
   Particle particles_[NUM_PARTICLES];
   WorldObjectBlock* worldObjects;
