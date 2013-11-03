@@ -34,9 +34,20 @@ class Ready(HeadBodyTask):
     commands.setStiffness()
     HeadBodyTask.run(self)
 
-class Playing(MachineTask):
+class Localize(MachineTask):
   def __init__(self):
-    super(Playing, self).__init__(testFSM.TestMachine())
+    super(Localize, self).__init__(testFSM.TestMachine())
+
+class Playing(HeadBodyTask):
+  def __init__(self):
+    HeadBodyTask.__init__(self, 
+      head.Scan(period = 3.0, maxPan = 105.0 * core.DEG_T_RAD, numSweeps = 1),
+      Localize()
+    )
+
+  def run(self):
+    commands.setStiffness()
+    HeadBodyTask.run(self)
 
 class Testing(Task):
   def run(self):

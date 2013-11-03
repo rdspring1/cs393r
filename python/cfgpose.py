@@ -870,8 +870,8 @@ armBehindKeeperPose[core.RElbowRoll] = 0 #-53
 
 
 armSidePose = dict()
-armSidePose[core.LShoulderPitch] = -116
-armSidePose[core.LShoulderRoll] = 12
+armSidePose[core.LShoulderPitch] = -100
+armSidePose[core.LShoulderRoll] = 30
 armSidePose[core.LElbowYaw] = -85
 armSidePose[core.LElbowRoll] = -0
 armSidePose[core.RShoulderPitch] = -116
@@ -888,6 +888,7 @@ standingLeftArmPose[core.LShoulderPitch] = 0
 standingLeftArmPose[core.LShoulderRoll] = 12
 standingLeftArmPose[core.LElbowYaw] = -85
 standingLeftArmPose[core.LElbowRoll] = -0
+
 standingLeftArmPose[core.LHipYawPitch] = 0
 standingLeftArmPose[core.LHipPitch] = -30
 standingLeftArmPose[core.LHipRoll] = 0

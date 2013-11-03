@@ -15,8 +15,8 @@ const float BEACON_PIECE_HEIGHT = 200.0f;
 const float BEACON_HEIGHT = 2 * BEACON_PIECE_HEIGHT;
 const float BALL_RADIUS = 31;
 
-const float FIELD_Y = 1500;
-const float FIELD_X = 2000;
+const float FIELD_Y = 2000;
+const float FIELD_X = 3000;
 const Point2D FIELD_CORNER = Point2D(FIELD_X / 2, FIELD_Y / 2);
 const float GRASS_Y = FIELD_Y + 2 * 702;
 const float GRASS_X = FIELD_X + 2 * 702;

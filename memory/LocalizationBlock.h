@@ -4,7 +4,7 @@
 #include "MemoryBlock.h"
 #include <localization/Particle.h>
 
-#define NUM_PARTICLES 100
+#define NUM_PARTICLES 200
 
 struct LocalizationBlock : public MemoryBlock {
 public:

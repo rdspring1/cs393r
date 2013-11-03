@@ -2,17 +2,25 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include <limits>
 using namespace std;
 
 #define RAND_THRESHOLD 40
 #define RESAMPLE_RATE 2
-#define RWALK_RATE 3
-#define GOOD_DISTANCE_DIFF_THRESH 0.25f
-#define MED_DISTANCE_DIFF_THRESH 0.50f
-#define VISION_BEARING 75.0f
+#define RWALK_RATE 4
+#define GOOD_DISTANCE_DIFF_THRESH 0.05f
+#define MED_DISTANCE_DIFF_THRESH 0.25f
+#define VISION_BEARING 45.0f
+#define HIGHER_BEARING 60.0f
 #define MIN_RAND_WALK 0.10f
 #define NEW_RAND_WALK 0.60f
 #define RESET_FRAME 1000
+#define ALPHA_SLOW 0.1
+#define ALPHA_FAST 0.5
+#define NUM_RANDOM 25
+#define FIELD_X 3000
+#define FIELD_Y 2000
+#define CLUSTER_SIZE 10
 
 void LocalizationModule::specifyMemoryDependency() 
 {
@@ -55,7 +63,9 @@ void LocalizationModule::initSpecificModule()
     p.theta = 0;
     p.prob = 1.0;
   }
+
   resetParticles();
+  addRandomParticles();
   copyParticles();
 }
 
@@ -64,9 +74,10 @@ void LocalizationModule::processFrame()
     int frameID = frameInfo->frame_id;
 
     // Fail-Safe
-    if (frameID % RESET_FRAME == 0) 
+    ///if (frameID % RESET_FRAME == 0  ) 
+    if (seenBeacons && confidence < 50 && variance() < 0.05)
     {
-        resetParticles();
+        //resetParticles();
     }
 
     // Update particles from observations
@@ -86,7 +97,13 @@ void LocalizationModule::processFrame()
     // If this is a random walk frame, random walk
     if (frameID % RWALK_RATE == 0) 
     {
-        randomWalkParticles();
+       randomWalkParticles();   
+    }
+
+    if (confidence < 0.70 && confidence > 0.0) {
+        //do more random walks
+        for (int i = 0; i < 8; ++i)
+            randomWalkParticles();   
     }
 
     // Copy particles to localization memory:
@@ -104,6 +121,129 @@ float LocalizationModule::getTotalFitness()
     return total;
 }
 
+// Calculates the gneral range of valid angle values around a beacon given its location
+void LocalizationModule::getThetaRange(float& tStart, float& tEnd, float bx, float by){
+    if (bx == 1500) {
+        if (by == -1000) {
+            tStart = 90.0f;
+            tEnd = 180.0f;
+        }
+        else {
+            tStart = 180.0f;
+            tEnd = 270.f;    
+        }
+    }
+    else if (bx == 0) {
+        if (by == -1000) {
+            tStart = 0.0f;
+            tEnd = 180.0f;
+        }
+        else {
+            tStart = 180.0f;
+            tEnd = 360.f;    
+        }
+     }
+    else {
+        if (by == -1000) {
+            tStart = 0.0f;
+            tEnd = 90.0f;
+        }
+        else {
+            tStart = 270.0f;
+            tEnd = 360.f;   
+        }
+    }
+
+    // Convert to radians
+    tStart = tStart * M_PI / 180.0; 
+    tEnd = tEnd * M_PI / 180.0; 
+}
+
+// Gets an approximate angle range of where the particles from the circle that are actually
+// located within the bounds of the field.
+void LocalizationModule::getApproximateRange(float& tStart, float &tEnd, float bx, float by, float radius) {
+    float tempStart = tStart;
+    float tMin = -1.0;
+    float tMax = 0.0;
+
+    while (tempStart < tEnd) {
+        float x = bx + radius * cos(tempStart);
+        float y = by + radius * sin(tempStart);
+
+        if (x >= -1500 && x <= 1500 && y >= -1000 && y <= 1000) {
+            if (tMin == -1.0) {
+                tMin = tempStart;
+            }
+            else {
+                tMax = tempStart;
+            }
+        }
+        tempStart += 5.0 * M_PI / 180.0; // move 5 degrees
+    }
+
+    tStart = tMin;
+    tEnd = tMax;    
+}
+
+// Returns a random float between two numbers
+// taken from stackoverflow
+float LocalizationModule::randomFloat(float a, float b) {
+    float random = ((float) rand()) / (float) RAND_MAX;
+    float diff = b - a;
+    float r = random * diff;
+    return a + r;
+}
+
+// Adds a random particle, if there were seen beacons, it adds it in a random place based on the landmark it was found
+// If no beacons were seen, it adds it completely random
+void LocalizationModule::addRandomParticles() {
+    vector<WorldObject*> beacons = getBeacons();
+    int genParticles = 0;
+    
+    if (beacons.size() > 0) {
+        int pNum = 0;
+        int p = 0;
+        int genParticles = 0;
+        while (pNum < NUM_RANDOM) {
+            
+            int bNum = rand() % beacons.size();
+            float radius = 0.95 * beacons[bNum]->visionDistance;
+            genParticles = rand() % (NUM_RANDOM - pNum + 1);
+            
+            float tStart = 0.0f;
+            float tEnd = 0.0f;
+            radius = radius - rand() % 20; // consider a range of radius for the region
+
+            getThetaRange(tStart, tEnd, beacons[bNum]->loc.x, beacons[bNum]->loc.y); // get angle range for a beacon
+            getApproximateRange(tStart, tEnd, beacons[bNum]->loc.x, beacons[bNum]->loc.y, radius);
+ 
+            for (int i = 0; i < genParticles; ++i) {
+                float tRand = randomFloat(tStart, tEnd);
+                float ra = 2.0 * drand48() - 1;
+                int index = rand() % NUM_PARTICLES;
+                particles_[index].prob = max(0.25f, 1 - confidence); //0.40f;
+                particles_[index].loc.x = beacons[bNum]->loc.x + radius * cos(tRand);
+                particles_[index].loc.y = beacons[bNum]->loc.y + radius * sin(tRand);
+                particles_[index].theta = ra * M_PI;
+                radius = radius - rand() % 20; // use a slightly different radius
+            }
+            pNum += genParticles;
+        }
+    }
+    else {
+        // add random particles
+        for (int i = 0;  i < NUM_RANDOM; ++i) 
+        {
+            int index = rand() % NUM_PARTICLES;
+            particles_[index].prob = 0.10f;
+            particles_[index].placeRandomly();
+        }
+    }
+
+
+}
+
+// Resample particles using the SUS
 void LocalizationModule::resample() 
 {
     float totalFitness = getTotalFitness();
@@ -132,6 +272,7 @@ void LocalizationModule::resample()
         particles_[j] = particlescpy[i];
         u += p;
     } 
+    addRandomParticles();
 }
 
 vector<WorldObject *> LocalizationModule::getBeacons() {
@@ -154,7 +295,7 @@ vector<WorldObject *> LocalizationModule::getBeacons() {
     }
     if (worldObjects->objects_[WO_BEACON_BLUE_YELLOW].seen)
     {
-       beacons.push_back(&worldObjects->objects_[WO_BEACON_BLUE_YELLOW]);
+       beacons.push_back(&worldObjects ->objects_[WO_BEACON_BLUE_YELLOW]);
     }
     if (worldObjects->objects_[WO_BEACON_BLUE_PINK].seen)
     {
@@ -171,31 +312,44 @@ float LocalizationModule::maxProb()
     {
         max = std::max(max, particles_[i].prob);
     }
+    
     return max;
 }
 
 void LocalizationModule::normalize() {
     float max = maxProb();
+    float total = 0.0f;
     for (int i = 0; i < NUM_PARTICLES; ++i) 
     {
         particles_[i].prob /= max;
-       // cout << "*** prob " << particles_[i].prob << " x " << particles_[i].loc.x << " y " << particles_[i].loc.y << endl;
+        total += particles_[i].prob;
     }
 }
 
+bool LocalizationModule::checkOnes() {
+
+    for (int i = 0; i < NUM_PARTICLES; ++i) {
+       if (particles_[i].prob == 1.0)
+            return true;
+    }
+    return false;
+}
+
+// Calculates the variance of the probabilities of the particles
 float LocalizationModule::variance() {
-    float mean = getTotalFitness() / NUM_PARTICLES;
+    float mean = getTotalFitness() / (1.0 * NUM_PARTICLES);
     float variance = 0.0f;
     for (int i = 0; i < NUM_PARTICLES; ++i) {
-       variance = pow((particles_[i].prob - mean), 2) / NUM_PARTICLES;
+       variance = pow((particles_[i].prob - mean), 2) / (1.0 * NUM_PARTICLES);
     }
     return variance;
 }
 
+// Updates the particle weights based on the observations
 void LocalizationModule::updateParticlesFromObservations() {
     vector<WorldObject*> beacons = getBeacons();
-    float countFarAvg = 0.0f;
-    //cout << "*** NUM beacons " << beacons.size() << endl;
+    float wAverage = 0.0f;
+
     for(int i = 0; i < NUM_PARTICLES; i++) {
         Particle& p = particles_[i];
  
@@ -204,37 +358,52 @@ void LocalizationModule::updateParticlesFromObservations() {
            float distance = p.loc.getDistanceTo(beacons[j]->loc);
            float observed = beacons[j]->visionDistance;
            float diff = fabs(observed - distance); // difference between the observed distance and the distance from the particle
-
+    
            // check the angle of the particle to the beacon
            Pose2D bPose(0, beacons[j]->loc.x, beacons[j]->loc.y);
            Pose2D pPose(p.theta, p.loc.x, p.loc.y);
            Pose2D bPoseRel = bPose.globalToRelative(pPose);
            AngRad relBearing = atan2f(bPoseRel.translation.y, bPoseRel.translation.x);
+           AngRad seenBearing = beacons[j]->visionBearing;
+           AngRad diffBearing = fabs(relBearing - seenBearing);
 
            if (diff / distance < GOOD_DISTANCE_DIFF_THRESH) 
-           {
-                // if the relBearing is greater than 150, the beacon is not in our range of vision
-                if (fabs(relBearing) > (VISION_BEARING * M_PI / 180.0)) {
-                  p.degradeProbability(0.75);
+           {    
+                // if the bearing is not good
+                if (diffBearing > (HIGHER_BEARING * M_PI / 180.0)) {
+                    p.degradeProbability(0.60);
                 }
-                else 
-                {
-                  p.degradeProbability(1.0);
+                else if(diffBearing > (VISION_BEARING * M_PI / 180.0)) {
+                    p.degradeProbability(0.65);
                 }
+            }
+           else if (diff / distance < MED_DISTANCE_DIFF_THRESH) {
+               if (diffBearing > (HIGHER_BEARING * M_PI / 180.0)) {
+                   p.degradeProbability(0.55);
+               }
+               else if (diffBearing > (VISION_BEARING * M_PI / 180.0)) {
+                   p.degradeProbability(0.60);
+               }
            }
            else 
            {
-                countFarAvg++;
-                p.degradeProbability(0.5);
+                p.degradeProbability(0.4);
            }
-        }
+
+           wAverage = wAverage + (1.0/NUM_PARTICLES)*p.prob;
+        }//for loop
+    } // for loop
+    wSlow = wSlow + ALPHA_SLOW*(wAverage - wSlow);
+    wFast = wFast + ALPHA_FAST*(wAverage - wFast);
+    confidence = wAverage;
+    if (beacons.size() > 0) 
+    {
+        seenBeacons = true;
+      }
+    else{
+        seenBeacons = false;
     }
-    //averageDistanceDiff = fabs(observed - averageDistance);
-    countFarAvg /= (NUM_PARTICLES * beacons.size());
-    if(countFarAvg > 0.7)
-        areFar = true;
-    else
-        areFar = false;
+
     normalize(); //normalize so that we always have a value with 1.0 probability
 }
 
@@ -286,11 +455,11 @@ void LocalizationModule::randomWalkParticles() {
     float p2Ratio = 1.0 - part2.prob;
     p1Ratio = (p1Ratio < MIN_RAND_WALK) ? NEW_RAND_WALK : p1Ratio; 
     p2Ratio = (p2Ratio < MIN_RAND_WALK) ? NEW_RAND_WALK : p2Ratio;
-        
+    
     float p1AngleRatio = 1.0 - part1.prob;
     float p2AngleRatio = 1.0 - part2.prob;
-    p1Ratio = (p1Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p1Ratio; 
-    p2Ratio = (p2Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p2Ratio;
+    p1AngleRatio = (p1Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p1Ratio; 
+    p1AngleRatio = (p2Ratio < MIN_RAND_WALK) ? MIN_RAND_WALK : p2Ratio;
 
     part1.move(dPos*p1Ratio, p1AngleRatio*dAng);
     part2.move(-dPos*p2Ratio,p2AngleRatio*-dAng);
@@ -303,20 +472,88 @@ void LocalizationModule::updatePose() {
     float x = 0.0f;
     float y = 0.0f;
     float bearing = 0.0f;
-    for (int i = 0; i < NUM_PARTICLES; ++i) 
+    
+    // Weighted Average
     {
-        float weight = particles_[i].prob;
-        x += weight * particles_[i].loc.x;
-        y += weight * particles_[i].loc.y;
-        bearing += weight * particles_[i].theta;
-    }
+        float total = getTotalFitness();
+        float sums = 0;
+        float sumc = 0;
+        for (int i = 0; i < NUM_PARTICLES; ++i) 
+        {
+            float weight = particles_[i].prob;
+            x += weight * particles_[i].loc.x;
+            y += weight * particles_[i].loc.y;
+            sums += weight * sin(particles_[i].theta);
+            sumc += weight * cos(particles_[i].theta);
+            //bearing += weight * particles_[i].theta;
+        }
 
-   Point2D origin;
-   float total = getTotalFitness();
-   self.loc.x = x / total;
-   self.loc.y = y / total;
-   self.orientation = bearing / total;
-   self.visionConfidence = variance();
-   self.visionDistance = self.loc.getDistanceTo(origin);
-   self.visionBearing = self.loc.getBearingTo(origin, self.orientation);
+        x /= total;
+        y /= total;
+        bearing = atan2(sums, sumc);
+    }
+    
+    /*
+    // Cluster Estimation
+    {
+        float minx = numeric_limits<float>::max();
+        float maxx = numeric_limits<float>::min();
+        float miny = numeric_limits<float>::max();
+        float maxy = numeric_limits<float>::min();
+        for (int i = 0; i < NUM_PARTICLES; ++i) 
+        {
+            minx = min(minx, particles_[i].loc.x);
+            maxx = max(maxx, particles_[i].loc.x);
+            miny = min(minx, particles_[i].loc.y);
+            maxy = max(maxy, particles_[i].loc.y);
+        }
+
+        float xdiv = (maxx - minx) / CLUSTER_SIZE;
+        float ydiv = (maxy - miny) / CLUSTER_SIZE;
+
+        float maxparticles = 0;
+        for(float i = minx; i < maxx; i += xdiv)
+        {
+            for(float j = miny; j < maxy; j += ydiv)
+            {
+                float currentparticles = 0;
+                float sumx = 0;
+                float sumy = 0;
+                float sums = 0;
+                float sumc = 0;
+                for (int n = 0; n < NUM_PARTICLES; ++n) 
+                {
+                    float maxi = i + 2 * xdiv;
+                    float maxj = j + 2 * ydiv;
+                    if(particles_[n].loc.x >= i && particles_[n].loc.y >= j && particles_[n].loc.x <= maxi && particles_[n].loc.y <= maxj)
+                    {
+                        sumx += particles_[n].loc.x;
+                        sumy += particles_[n].loc.y;
+                        sums += sin(particles_[n].theta);
+                        sumc += cos(particles_[n].theta);
+                        ++currentparticles;
+                    }
+                }
+
+                if(currentparticles > maxparticles)
+                {
+                    maxparticles = currentparticles;
+                    x = sumx / currentparticles;
+                    y = sumy / currentparticles;
+                    bearing = atan2(sums, sumc);
+                }
+            }
+        }
+    }
+    */
+
+    Point2D origin;
+    self.loc.x = x;
+    self.loc.y = y;
+    self.orientation = bearing;
+    self.visionConfidence = variance();
+    self.seen = seenBeacons;
+    self.radius = confidence;
+    self.visionDistance = self.loc.getDistanceTo(origin);
+    self.visionBearing = self.loc.getBearingTo(origin, self.orientation);
 }

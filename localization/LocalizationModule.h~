@@ -41,6 +41,10 @@ class LocalizationModule: public Module  {
   void normalize();
   float maxProb();
   float variance();
+  bool checkOnes();
+  void addRandomParticles();
+  void getThetaRange(float& tStart, float& tEnd, float bx, float by);
+  void getApproximateRange(float& tStart, float &tEnd, float bx, float by, float radius);
   
   vector<WorldObject *> getBeacons();
   Particle particles_[NUM_PARTICLES];
@@ -54,6 +58,13 @@ class LocalizationModule: public Module  {
   JointBlock* jointAngles;
   BehaviorBlock* behaviorMem;
   ProcessedSonarBlock* processedSonar;
+  bool areFar;
+  float confidence;
+  bool doReset;
+  bool seenBeacons;
+  float wSlow;
+  float wFast;
+  
   DelayedLocalizationBlock* delayedLocalization;
 };
 
