@@ -52,10 +52,10 @@ class ChooseNode(Node):
         else:
            commands.stand()
            print "_____Localization Complete______ " + str(robot.visionDistance)
-           core.speech.say("Localization Complete")
+           #core.speech.say("Localization Complete")
            self.postSignal(Choices.Stand)
 
-        if (self.getTime() > 10 and robot.visionDistance < ATHRESHOLD and robot.visionDistance > DTHRESHOLD):
+        if (self.getTime() > 9 and robot.visionDistance < ATHRESHOLD and robot.visionDistance > DTHRESHOLD):
             core.speech.say("Approach")
             self.postSignal(Choices.Stand)
             

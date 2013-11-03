@@ -9,7 +9,7 @@ using namespace std;
 #define RESAMPLE_RATE 2
 #define RWALK_RATE 4
 #define GOOD_DISTANCE_DIFF_THRESH 0.05f
-#define MED_DISTANCE_DIFF_THRESH 0.25f
+#define MED_DISTANCE_DIFF_THRESH 0.32f
 #define VISION_BEARING 45.0f
 #define HIGHER_BEARING 60.0f
 #define MIN_RAND_WALK 0.10f
@@ -21,6 +21,7 @@ using namespace std;
 #define FIELD_X 3000
 #define FIELD_Y 2000
 #define CLUSTER_SIZE 10
+#define ROFFSET 20
 
 void LocalizationModule::specifyMemoryDependency() 
 {
@@ -212,7 +213,7 @@ void LocalizationModule::addRandomParticles() {
             
             float tStart = 0.0f;
             float tEnd = 0.0f;
-            radius = radius - rand() % 20; // consider a range of radius for the region
+            radius = radius - rand() % ROFFSET; // consider a range of radius for the region
 
             getThetaRange(tStart, tEnd, beacons[bNum]->loc.x, beacons[bNum]->loc.y); // get angle range for a beacon
             getApproximateRange(tStart, tEnd, beacons[bNum]->loc.x, beacons[bNum]->loc.y, radius);
@@ -225,14 +226,14 @@ void LocalizationModule::addRandomParticles() {
                 particles_[index].loc.x = beacons[bNum]->loc.x + radius * cos(tRand);
                 particles_[index].loc.y = beacons[bNum]->loc.y + radius * sin(tRand);
                 particles_[index].theta = ra * M_PI;
-                radius = radius - rand() % 20; // use a slightly different radius
+                radius = radius - rand() % ROFFSET; // use a slightly different radius
             }
             pNum += genParticles;
         }
     }
     else {
         // add random particles
-        for (int i = 0;  i < NUM_RANDOM; ++i) 
+        for (int i = 0;  i < NUM_RANDOM / 2; ++i) 
         {
             int index = rand() % NUM_PARTICLES;
             particles_[index].prob = 0.10f;
@@ -485,7 +486,6 @@ void LocalizationModule::updatePose() {
             y += weight * particles_[i].loc.y;
             sums += weight * sin(particles_[i].theta);
             sumc += weight * cos(particles_[i].theta);
-            //bearing += weight * particles_[i].theta;
         }
 
         x /= total;
