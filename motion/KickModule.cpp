@@ -13,6 +13,8 @@
 #include <memory/WalkInfoBlock.h>
 #include <memory/WalkRequestBlock.h>
 
+using namespace std;
+
 KickModule::KickModule() {
 }
 
@@ -32,6 +34,7 @@ void KickModule::specifyMemoryDependency() {
   requiresMemoryBlock("speech");
   requiresMemoryBlock("walk_info");
   requiresMemoryBlock("walk_request");
+  requiresMemoryBlock("body_model");
 }
 
 void KickModule::specifyMemoryBlocks() {
@@ -47,6 +50,7 @@ void KickModule::specifyMemoryBlocks() {
   getMemoryBlock(speech_, "speech");
   getMemoryBlock(walk_info_,"walk_info");
   getMemoryBlock(walk_request_,"walk_request");
+  getMemoryBlock(body_model_, "body_model");
 }
 
 void KickModule::initSpecificModule() {
@@ -103,6 +107,21 @@ void KickModule::processFrame() {
     setKickOdometry();
     kick_request_->kick_running_ = true;
   }
+
+    // Calculate Position and Velocity of COM
+    float vx = (prev_center_of_mass_.x - body_model_->center_of_mass_.x) * getFramesPerSecond() / 1000.0f; 
+    float vy = (prev_center_of_mass_.y - body_model_->center_of_mass_.y) * getFramesPerSecond() / 1000.0f; 
+    cout << "** COM x y vx vy: " << body_model_->center_of_mass_.x << " " << body_model_->center_of_mass_.y << " " << vx << " " << vy << endl;
+
+    // Save body_model for com velocity calculation
+    prev_center_of_mass_ = body_model_->center_of_mass_;
+
+ //cout << "** torso x y z " << body_model_->abs_parts_[BodyPart::torso].translation.x << " " << body_model_->abs_parts_[BodyPart::torso].translation.y << " " << body_model_->abs_parts_[BodyPart::torso].translation.z << endl;
+
+   //cout << "** left_foot x y z " << body_model_->abs_parts_[BodyPart::left_foot].translation.x << " " << body_model_->abs_parts_[BodyPart::left_foot].translation.y << " " << body_model_->abs_parts_[BodyPart::left_foot].translation.z << endl;
+
+ //cout << "** left_bottom_foot x y z " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.x << " " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.y << " " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.z << endl;
+
 }
 
 int KickModule::getFramesInState() {
@@ -115,6 +134,10 @@ float KickModule::getTimeInState() {
 
 float KickModule::getMillisecondsInState() {
   return 1000.0f * (frame_info_->seconds_since_start - kick_module_->state_start_time_);
+}
+
+float KickModule::getFramesPerSecond() {
+  return 1.0f * getFramesInState() / getTimeInState();
 }
 
 void KickModule::processKickRequest() {

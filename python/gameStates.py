@@ -5,6 +5,7 @@ from task import Task, HeadBodyTask, MachineTask
 import pose, head, kicks
 import commands, cfgstiff
 import testFSM
+import p2Task1
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -38,16 +39,9 @@ class Localize(MachineTask):
   def __init__(self):
     super(Localize, self).__init__(testFSM.TestMachine())
 
-class Playing(HeadBodyTask):
+class Playing(MachineTask):
   def __init__(self):
-    HeadBodyTask.__init__(self, 
-      head.Scan(period = 3.0, maxPan = 105.0 * core.DEG_T_RAD, numSweeps = 1),
-      Localize()
-    )
-
-  def run(self):
-    commands.setStiffness()
-    HeadBodyTask.run(self)
+    super(Playing, self).__init__(p2Task1.Task1())
 
 class Testing(Task):
   def run(self):

@@ -42,6 +42,7 @@ private:
   int getFramesInState();
   float getTimeInState();
   float getMillisecondsInState();
+  float getFramesPerSecond();
   void processKickRequest();
   void startKick();
   void setHead();
@@ -81,6 +82,8 @@ private:
   KickParameters *params_normal_;
   KickParameters *params_super_;
   BodyModelBlock command_body_model_; // for local computation about commands
+  BodyModelBlock *body_model_;
+  Vector3<float> prev_center_of_mass_;
 
   FrameInfoBlock *frame_info_;
   JointCommandBlock *commands_;
