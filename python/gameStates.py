@@ -5,7 +5,7 @@ from task import Task, HeadBodyTask, MachineTask
 import pose, head, kicks
 import commands, cfgstiff
 import testFSM
-import p2Task1
+import p2Task1, attacker
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -42,11 +42,14 @@ class Localize(MachineTask):
 class Playing(MachineTask):
   def __init__(self):
     super(Playing, self).__init__(p2Task1.Task1())
+    #super(Playing, self).__init__(attacker.DribbleAndKick())
 
 class Testing(Task):
   def run(self):
-    commands.setStiffness()
+    core.walk_request.start_balance_ = False
+    #pose.Sit
+    '''commands.setStiffness()
     commands.setWalkVelocity(.5, .2, 0.0)
     if self.getTime() > 5.0:
       self.subtask = pose.Sit()
-      self.finish()
+      self.finish()'''

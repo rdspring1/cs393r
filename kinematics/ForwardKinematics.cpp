@@ -135,6 +135,17 @@ void ForwardKinematics::calculateAbsolutePose(Pose3D base, Pose3D *rel_parts, Po
   //PRINT_PART(abs_parts, BodyPart::top_camera, "top cam");
 }
 
+float ForwardKinematics::calculateTotalMass(const MassCalibration &mass_calibration) {
+  float total_mass = 0;
+
+  for(int i = 0; i < BodyPart::NUM_PARTS; i++)
+  {
+    const MassCalibration::MassInfo& limb(mass_calibration.masses[i]);
+    total_mass += limb.mass;
+  }
+  return total_mass;
+}
+
 void ForwardKinematics::calculateCoM(Pose3D *abs_parts, Vector3<float> &center_of_mass, const MassCalibration &mass_calibration) {
   float total_mass = 0;
   center_of_mass = Vector3<float> (0,0,0);

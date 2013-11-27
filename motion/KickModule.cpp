@@ -12,8 +12,20 @@
 #include <memory/SpeechBlock.h>
 #include <memory/WalkInfoBlock.h>
 #include <memory/WalkRequestBlock.h>
+#include <cmath>
+
+#define XFRONTSUPPORT 0.07025f
+#define XBACKSUPPORT -0.03025f
+#define AVEL 7.3017f
+#define STOP 6
+#define KP 0.01
+#define KD 0.01
+#define SMOOTH 0.65
+//#define STOP 6
+#define WAIT 10
 
 using namespace std;
+
 
 KickModule::KickModule() {
 }
@@ -63,11 +75,291 @@ void KickModule::initSpecificModule() {
   
   params_normal_ = &kick_params_->params_;
   params_super_ = &kick_params_->params_super_;
+  
+  walk_request_->start_balance_ = false;
+  
+  start_step_ = false;
+  init_balance_ = false;
+  balance_count_ = 0;
+  l_fsr_front_ = 0; // pressure sensors for left foot
+  l_fsr_back_ = 0;
+  l_fsr_right_ = 0;
+  l_fsr_left_ = 0;
+  hipframewait = WAIT;
+}
+
+void KickModule::initStepPositions() {
+    if(balance_count_ == 0) {
+
+        BodyPart::Part left_foot = BodyPart::left_foot;
+        Pose3D left_original = body_model_->abs_parts_[left_foot].translation;
+
+        Pose3D left_target(left_original);
+
+        BodyPart::Part right_foot = BodyPart::right_foot;
+        Pose3D right_original = body_model_->abs_parts_[right_foot].translation;
+
+        Pose3D right_target(right_original);
+
+        for(int i = 0; i < NUM_STEP_POSITIONS; i++) {
+            lfoot_y_[i] = left_target.translation.y;
+            rfoot_y_[i] = right_target.translation.y;
+            
+            lfoot_x_[i] = left_target.translation.x;
+            lfoot_z_[i] = -175;
+
+            rfoot_x_[i] = right_target.translation.x;
+        }
+        rfoot_z_[1] = -175;
+        rfoot_z_[2] = -165;
+        rfoot_z_[3] = -155;
+        rfoot_z_[4] = -155;
+        rfoot_z_[5] = -165;
+        rfoot_z_[6] = -175;
+
+        rfoot_x_[1] = 8;
+        rfoot_x_[2] = 18;
+        rfoot_x_[3] = 28;
+        rfoot_x_[4] = 38;
+        rfoot_x_[5] = 48;
+        rfoot_x_[6] = 48;
+    }
+}
+
+void KickModule::initJointAngles() {
+    if(balance_count_ == 0) {
+        for(int joint = 0; joint < NUM_JOINTS; joint++) {
+            commands_->angles_[joint] = joint_angles_->values_[joint];
+        }
+        for(int joint = 0; joint < NUM_JOINTS; joint++) {
+           previous_commands_[joint] = joint_angles_->values_[joint];
+         } 
+            initStepPositions();
+            balance_count_++;
+            
+       }
+     else {
+        for(int joint = 0; joint < NUM_JOINTS; joint++)
+           commands_->angles_[joint] = previous_commands_[joint];
+     }
+}
+
+// Updates previous joint angles with the command angles we are sending
+void KickModule::updatePreviousAngles() {
+   for(int joint = 0; joint < NUM_JOINTS; joint++)
+        previous_commands_[joint] = commands_->angles_[joint];
+}
+
+
+float KickModule::sumFsrs(FootSensorRegion r) {
+    int left_front[2] = {fsrLFL, fsrLFR};
+    int left_back[2] = {fsrLRL, fsrLRR};
+    int left_left[2] = {fsrLFL, fsrLRL};
+    int left_right[2] = {fsrLFR, fsrLRR};    
+    
+    int *region;
+
+    if(r == Front)
+        region = left_front;
+    else if(r == Back)
+        region = left_back;
+    else if(r == Left)
+        region = left_left;
+    else if(r == Right)
+        region = left_right;
+
+    float sum = 0.0;
+    
+    for(int i = 0; i < 2; i++) {
+        sum += sensors_->values_[region[i]];
+    }
+    return sum;
+}
+
+void KickModule::initFeetSensorValues() {
+    l_fsr_front_ = sumFsrs(Front); // pressure sensors for left foot
+    l_fsr_back_ = sumFsrs(Back);
+    l_fsr_right_ = sumFsrs(Left);
+    l_fsr_left_ = sumFsrs(Right);
+}
+
+void KickModule::footPressureBalance() {
+    l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front); // pressure sensors for left foot
+    l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
+    l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
+    l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+
+    float x_error = l_fsr_front_ - l_fsr_back_;
+    float y_error = l_fsr_right_ - l_fsr_left_;
+    
+    float p_x_error = KP * x_error;
+    float p_y_error = KP * y_error;
+
+    float d_x = x_error - x_prev_error_;
+    //float d_y = y_error - y_prev_error_;
+
+    float d_x_error_ = KD * d_x;
+    //float d_y_error_ = KD * d_y;
+
+    float xOffset = p_x_error + d_x_error_;
+    //float yOffset = p_y_error + d_y_error_;
+
+    cout << "** horizontal velocity: " << d_x << endl;
+    float newAngle = commands_->angles_[LHipPitch] + xOffset;
+    if(hipframewait == 0) 
+    {
+          //cout << "** Current angle, offset" << (RAD_T_DEG * commands_->angles_[LHipPitch]) << " " << (RAD_T_DEG * (p_x_error + d_x_error_)) << endl;
+          if(newAngle < maxJointLimits[LHipPitch] && newAngle > minJointLimits[LHipPitch]) 
+          {
+           
+            commands_->angles_[LHipPitch] = newAngle;
+            commands_->angles_[RHipPitch] = newAngle;
+            hipframewait = WAIT;
+          }
+    }
+    
+    if(hipframewait > 0)
+    {
+        --hipframewait;
+    }
+    x_prev_error_ = x_error;
+    y_prev_error_ = y_error;
 }
 
 void KickModule::processFrame() {
+    //processKickRequest();
+
+    //cout << "Center of mass x y z " << body_model_->center_of_mass_.x << ", " << body_model_->center_of_mass_.y << ", " << body_model_->center_of_mass_.z << endl;
+   // cout << "Torso ABS x y z " << body_model_->abs_parts_[BodyPart::torso].translation.x << ", " << body_model_->abs_parts_[BodyPart::torso].translation.y << ", " << body_model_->abs_parts_[BodyPart::torso].translation.z << endl;
+    //cout << "Torso REL x y z " << body_model_->rel_parts_[BodyPart::torso].translation.x << ", " << body_model_->rel_parts_[BodyPart::torso].translation.y << ", " << body_model_->rel_parts_[BodyPart::torso].translation.z << endl;
+
+    BodyPart::Part left_foot = BodyPart::left_foot;
+    Pose3D left_original = body_model_->abs_parts_[left_foot].translation;
+    Pose3D left_rel = body_model_->rel_parts_[left_foot].translation;
+
+    Pose3D left_target(left_original);
+    //footPressureBalance(); // FEET PRESSURE
+
+    if(walk_request_->start_balance_) {
+        kick_request_->kick_running_ = true;
+
+        // STIFFNESS
+        // Maintain the stiffness from now on after we turn off walk    
+        walk_request_->noWalk();
+        initJointAngles();
+        initFeetSensorValues();
+
+        init_balance_ = true; // for initJointAngles
+        
+        if(start_step_ == false) {
+            footPressureBalance();            
+
+
+            //walk_request_->noWalk();
+            //cout << "*TWO* Walk request: " << walkNames[walk_request_->motion_] << endl;
+            float roll = DEG_T_RAD * 0;
+            Vector3<float> pendulum = body_model_->abs_parts_[BodyPart::torso].translation;
+
+            // move left foot up a little bit
+            // copy previous commands to commands angles
+            // set stiffness to one while we are in balancing
+            // fill in commands_->angles_
+            // set send body angles
+            // set time for body angles
+
+            BodyPart::Part left_foot = BodyPart::left_foot;
+            Pose3D left_original = body_model_->abs_parts_[left_foot].translation;
+            Pose3D left_rel = body_model_->rel_parts_[left_foot].translation;
+
+            Pose3D left_target(left_original);
+
+            BodyPart::Part right_foot = BodyPart::right_foot;
+            Pose3D right_original = body_model_->abs_parts_[right_foot].translation;
+            Pose3D right_rel = body_model_->rel_parts_[right_foot].translation;
+
+            Pose3D right_target(right_original);
+            
+            // translate to torso coordinates
+            Vector3<float> left_foot_to_torso_offset;
+            left_foot_to_torso_offset = left_target.translation - body_model_->abs_parts_[BodyPart::torso].translation;
+
+            Vector3<float> right_foot_to_torso_offset;
+            right_foot_to_torso_offset = right_target.translation - body_model_->abs_parts_[BodyPart::torso].translation;
+
+            //cout << "left foot relative to origin:" << endl;
+            //cout << "x y z " << body_model_->rel_parts_[left_foot].translation.x << ", " << body_model_->rel_parts_[left_foot].translation.y << ", " << body_model_->rel_parts_[left_foot].translation.z << endl << endl;
+
+            //cout << "**before translating to torso coordinates:" << endl;
+            //cout << "left x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
+            //cout << "right x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl << endl;
+
+            //cout << "torso x y z " << pendulum.x << " " << pendulum.y << " " << pendulum.z << endl;
+            //cout << "offsets x y z " << left_foot_to_torso_offset.x << " " << left_foot_to_torso_offset.y << " " << left_foot_to_torso_offset.z << endl;
+
+            float newx = pendulum.x + left_foot_to_torso_offset.x;
+            float newy = pendulum.y + left_foot_to_torso_offset.y;
+            float newz = pendulum.z + left_foot_to_torso_offset.z;
+
+            left_target.translation.x = left_foot_to_torso_offset.x; //pendulum.x + left_foot_to_torso_offset.x;
+            left_target.translation.y = left_foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;
+            left_target.translation.z = -175.0; // - 10; //pendulum.z + left_foot_to_torso_offset.z;
+  
+            right_target.translation.x = right_foot_to_torso_offset.x; //pendulum.x + left_foot_to_torso_offset.x;
+            right_target.translation.y = right_foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;            
+            right_target.translation.z = -175.0; //pendulum.z + left_foot_to_torso_offset.z;
+
+
+            right_target.translation.z = rfoot_z_[balance_count_];
+            right_target.translation.x = rfoot_x_[balance_count_];
+
+            //cout << "___ balance count " << balance_count_ << endl;
+            //cout << "**after translating to torso coordinates:" << endl;
+            //cout << "LEFT x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
+            //cout << "RIGHT x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl << endl;
+
+            if(balance_count_ == STOP) {
+                //start_step_ = true;
+                //walk_request_->start_balance_;
+                //walk_request_->stand();
+            }
+
+
+            // check if inverse kinematics is feasible
+            // call inverse kinematics commandLegsRelativeToTorso
+            // print out the before and after angles for the legs
+
+            bool left_compliant = true;
+            bool right_compliant = true;
+    
+            //inverse_kinematics_.calcLegJoints(left_target, right_target, commands_->angles_, robot_info_->dimensions_);
+            //commands_->angles_[LHipPitch] = -85 * DEG_T_RAD;
+            //commands_->angles_[RHipPitch] = -85 * DEG_T_RAD;
+
+            balance_count_++;   
+          } //if start_step
+
+
+            updatePreviousAngles();  
+
+            initStiffness();
+            commands_->stiffness_time_ = 40;
+            commands_->send_body_angles_ = true;
+            commands_->body_angle_time_ = 80; // this changes depending on the movement
+        
+    }//if start balance
+
+} //process
+
+
+// previous process frame
+/*
+void KickModule::processFrame() {
   processKickRequest();
 
+     // cout << "*ONE* INITIAL stance command_body_model x y z " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.x << ", " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.y << ", " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.z << endl;
+
+   //cout << "*ONE* INITIAL stance body_model x y z " << body_model_->abs_parts_[BodyPart::left_foot].translation.x << ", " << body_model_->abs_parts_[BodyPart::left_foot].translation.y << ", " << body_model_->abs_parts_[BodyPart::left_foot].translation.z << endl;
+//cout << "*  WALK REQUEST : " << walkNames[walk_request_->motion_] << endl;
   if (kick_module_->state_ == KickState::STAND) {
     kick_request_->kick_running_ = true;
     // only transition into kick if we think we're stable
@@ -77,7 +369,7 @@ void KickModule::processFrame() {
         walk_request_->noWalk();
         transitionToState((KickState::State)(kick_module_->state_ + 1));
       } else {
-        walk_request_->stand();
+         walk_request_->stand();
       }
     } else {
       walk_request_->stand();
@@ -86,7 +378,8 @@ void KickModule::processFrame() {
     }
   }
 
-  if ((kick_module_->state_ == KickState::WALK) && (!walk_info_->walk_is_active_) && (frame_info_->seconds_since_start > kick_module_->state_start_time_ + 0.5)) {
+  if ((kick_module_->state_ == KickState::WALK) && (!walk_info_->walk_is_active_) && (frame_info_->seconds_since_start > kick_module_->state_start_time_ + 0.5)) {   
+      //cout << "______________________ STARTED KICK" << endl;      
     startKick();
   }
 
@@ -107,22 +400,8 @@ void KickModule::processFrame() {
     setKickOdometry();
     kick_request_->kick_running_ = true;
   }
-
-    // Calculate Position and Velocity of COM
-    float vx = (prev_center_of_mass_.x - body_model_->center_of_mass_.x) * getFramesPerSecond() / 1000.0f; 
-    float vy = (prev_center_of_mass_.y - body_model_->center_of_mass_.y) * getFramesPerSecond() / 1000.0f; 
-    cout << "** COM x y vx vy: " << body_model_->center_of_mass_.x << " " << body_model_->center_of_mass_.y << " " << vx << " " << vy << endl;
-
-    // Save body_model for com velocity calculation
-    prev_center_of_mass_ = body_model_->center_of_mass_;
-
- //cout << "** torso x y z " << body_model_->abs_parts_[BodyPart::torso].translation.x << " " << body_model_->abs_parts_[BodyPart::torso].translation.y << " " << body_model_->abs_parts_[BodyPart::torso].translation.z << endl;
-
-   //cout << "** left_foot x y z " << body_model_->abs_parts_[BodyPart::left_foot].translation.x << " " << body_model_->abs_parts_[BodyPart::left_foot].translation.y << " " << body_model_->abs_parts_[BodyPart::left_foot].translation.z << endl;
-
- //cout << "** left_bottom_foot x y z " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.x << " " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.y << " " << body_model_->abs_parts_[BodyPart::left_bottom_foot].translation.z << endl;
-
 }
+*/
 
 int KickModule::getFramesInState() {
   return frame_info_->frame_id - kick_module_->state_start_frame_;
@@ -190,7 +469,7 @@ void KickModule::setLegStiffness(float stiff) {
 }
 
 void KickModule::transitionToState(KickState::State state) {
-  //std::cout << "transitionToState: " << KickState::getName(kick_module_->state_) << " -> " << KickState::getName(state) << " " << frame_info_->frame_id << std::endl;
+  std::cout << "transitionToState: " << KickState::getName(kick_module_->state_) << " -> " << KickState::getName(state) << " " << frame_info_->frame_id << std::endl;
   if (kick_module_->state_ == KickState::STAND && !walk_info_->walk_is_active_) {
     bool continue_kick = handleAiming();
     if (continue_kick) {
@@ -262,9 +541,9 @@ bool KickModule::handleAiming() {
 
 void KickModule::kick() {
   Vector3<float> com = state_params_->com;
-
+    cout << "____kick() COM state params " << com.x << ", " << com.y << ", " << com.z << endl;
   if (kick_module_->state_ == KickState::SPLINE) {
-    sendSplineCOMCommands(com);
+    //sendSplineCOMCommands(com);
     return;
   }
 
@@ -402,6 +681,9 @@ void KickModule::calcJointTargets(const Vector3<float> &com_target, const Pose3D
   Vector3<float> com;
   calcCenterOfMass(previous_commands_, com, !is_left_swing,0.0f);
 
+  cout << "_____COM TARGET " << com_target.x << ", " << com_target.y << ", " << com_target.z << endl;
+  cout << "_____COM PREV COMMANDS " << com.x << ", " << com.y << ", " << com.z << endl;
+
   // figure out which leg is stance && which is swing
   Pose3D left_target;
   Pose3D right_target;
@@ -419,6 +701,15 @@ void KickModule::calcJointTargets(const Vector3<float> &com_target, const Pose3D
     //swing_foot = BodyPart::right_foot;
     //stance_hip_roll = LHipRoll;
   }
+
+ //cout << "** INITIAL CM TORSO command_body_model x y z " << command_body_model_.abs_parts_[BodyPart::torso].translation.x << ", " << command_body_model_.abs_parts_[BodyPart::torso].translation.y << ", " << command_body_model_.abs_parts_[BodyPart::torso].translation.z << endl;
+ //cout << "** INITIAL BM TORSO body_model x y z " << body_model_->abs_parts_[BodyPart::torso].translation.x << ", " << body_model_->abs_parts_[BodyPart::torso].translation.y << ", " << body_model_->abs_parts_[BodyPart::torso].translation.z << endl;
+
+  //cout << "** INITIAL stance command_body_model x y z " << command_body_model_.abs_parts_[stance_foot].translation.x << ", " << command_body_model_.abs_parts_[stance_foot].translation.y << ", " << command_body_model_.abs_parts_[stance_foot].translation.z << endl;
+ // cout << "** INITIAL stance body_model x y z " << body_model_->abs_parts_[stance_foot].translation.x << ", " << body_model_->abs_parts_[stance_foot].translation.y << ", " << body_model_->abs_parts_[stance_foot].translation.z << endl;
+    // cout << "** INITIAL REL LEFT body_model x y z " << body_model_->rel_parts_[BodyPart::left_foot].translation.x << ", " << body_model_->rel_parts_[BodyPart::left_foot].translation.y << ", " << body_model_->rel_parts_[BodyPart::left_foot].translation.z << endl;
+   // cout << "** INITIAL REL LEFT command_model x y z " << command_body_model_.rel_parts_[BodyPart::left_foot].translation.x << ", " << command_body_model_.rel_parts_[BodyPart::left_foot].translation.y << ", " << command_body_model_.rel_parts_[BodyPart::left_foot].translation.z << endl;
+  
   // the offset from stance leg to torso
   Vector3<float> stance_to_torso_offset;
   stance_to_torso_offset = command_body_model_.abs_parts_[stance_foot].translation - command_body_model_.abs_parts_[BodyPart::torso].translation;
@@ -428,6 +719,8 @@ void KickModule::calcJointTargets(const Vector3<float> &com_target, const Pose3D
   abs_desired_com.y = com_target.y + stance_to_torso_offset.y;
   abs_desired_com.z = com_target.z;
 
+
+  cout << "_____COM ABS DESIRED " << abs_desired_com.x << ", " << abs_desired_com.y << ", " << abs_desired_com.z << endl;
 
   // stance leg starts out at current position
   // && will be offset later by com change we want
@@ -498,6 +791,8 @@ void KickModule::calcJointTargets(const Vector3<float> &com_target, const Pose3D
     TiltRoll tr = ForwardKinematics::calculateTiltRollFromLeg(!is_left_swing, commands_->angles_, robot_info_->dimensions_);
     tr.roll_ = roll;
     
+    //cout << "** SENDING TARGET RIGHT x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl;
+    // cout << "** SENDING TARGET LEFT x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
     commandLegsRelativeToTorso(command_angles, left_target, right_target, tr.tilt_, tr.roll_, 0.0f, left_compliant,right_compliant);
     setArms(command_angles);
 
@@ -549,6 +844,8 @@ void KickModule::calcCenterOfMass(float *command_angles, Vector3<float> &center_
   ForwardKinematics::calculateAbsolutePose(base, command_body_model_.rel_parts_, command_body_model_.abs_parts_);
   ForwardKinematics::calculateCoM(command_body_model_.abs_parts_, command_body_model_.center_of_mass_, robot_info_->mass_calibration_);
   center_of_mass = command_body_model_.center_of_mass_;
+
+  cout << "____ calcCenterOfMass " << center_of_mass.x << ", " << center_of_mass.y << ", " << center_of_mass.z << endl;
 }
 
 void KickModule::commandLegsRelativeToTorso(float *command_angles, Pose3D left_target, Pose3D right_target, float /*tilt*/, float roll, float /*tilt_roll_factor*/, bool left_compliant, bool right_compliant) {
@@ -565,8 +862,19 @@ void KickModule::commandLegsRelativeToTorso(float *command_angles, Pose3D left_t
     right_target.translation = rot * right_target.translation;
     right_target.rotation = right_target.rotation * foot_rotation;
   }
+  bool isValid = false;
+  //cout << "*** command legs relative to torso " << endl;
+  cout << "left foot x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
+  //cout << "left foot rotation x y z " << left_target.rotation.getXAngle() << ", " << left_target.rotation.getYAngle() << ", " << left_target.rotation.getZAngle() << endl;
+  cout << "right foot x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl;
+  //cout << "right foot rotation x y z " << right_target.rotation.getXAngle() << ", " << right_target.rotation.getXAngle() << ", " << right_target.rotation.getXAngle() << endl;
 
-  inverse_kinematics_.calcLegJoints(left_target, right_target, command_angles, robot_info_->dimensions_);
+  isValid = inverse_kinematics_.calcLegJoints(left_target, right_target, command_angles, robot_info_->dimensions_);
+
+
   command_angles[LHipYawPitch] = 0.0;
   command_angles[RHipYawPitch] = 0.0;
+
+
+
 }

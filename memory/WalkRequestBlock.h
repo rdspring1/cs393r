@@ -84,6 +84,7 @@ public:
   }
 
   void stand() {
+    start_balance_ = false;
     set(STAND,Pose2D(0,0,0),true,false);
   }
 
@@ -187,6 +188,8 @@ public:
   bool keep_arms_out_;
 
   bool slow_stand_; // true if we need a slow stand
+
+  bool start_balance_;
 
   bool walk_decides_finished_with_target_;
   float finished_with_target_max_x_error_;

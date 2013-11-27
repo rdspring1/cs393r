@@ -8,6 +8,8 @@
 #include <common/RobotDimensions.h>
 
 namespace ForwardKinematics {
+
+  float calculateTotalMass(const MassCalibration &mass_calibration);
   void calculateRelativePose(float *joint_angles, Pose3D *rel_parts, float* dimensions);
   void calculateRelativePose(float *joint_angles, float angleX, float angleY, Pose3D *rel_parts, float* dimensions);
   void calculateAbsolutePose(float* sensors, Pose3D *rel_parts, Pose3D *abs_parts);

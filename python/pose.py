@@ -10,6 +10,7 @@ import percepts
 class Sit(Task):
   def __init__(self):
     Task.__init__(self)
+    core.walk_request.start_balance_ = False
     core.kick_request.setNoKick()
     core.walk_request.noWalk()
     core.kick_request.kick_running_ = False
