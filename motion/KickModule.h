@@ -79,6 +79,9 @@ class KickModule : public Module {
 		void initFeetSensorValues();
 		void footPressureBalance();
 		float sumFsrs(FootSensorRegion r);
+        void calcStepSplinePts();
+        void stepBalance();
+        bool footSensorHasValues();
 
 	private:
 		float previous_commands_[NUM_JOINTS];
@@ -95,11 +98,15 @@ class KickModule : public Module {
 		float x_prev_error_;
 		float y_prev_error_;
 		float hip_prev_angle_;
+        float roll_prev_angle_;
 		float hipframewait;
+        float w_;
+        float rc_;
 
 	public:
 		Spline3D swing_spline_;
 		Spline3D stance_spline_;
+        Spline3D step_spline_;
 		int invalidCount;
 
 	private:

@@ -24,10 +24,15 @@
 #define KD 0.05f
 #define SMOOTH 0.65
 #define WAIT 10
-#define XACCEL 0.02f
+#define XACCEL 0.05f
+#define YACCEL 0.02f
 #define HIPSTAND (DEG_T_RAD * -30.0f)
+#define HIPROLL (DEG_T_RAD * -0.26f)
 #define FORWARDHIP (DEG_T_RAD * -55.0f)
 #define BACKWARDHIP (DEG_T_RAD * -25.0f)
+#define LEFTHIP (DEG_T_RAD * 5.0f)
+#define RIGHTHIP (DEG_T_RAD * -5.0f)
+#define DETECT 0.02f
 
 using namespace std;
 
@@ -156,7 +161,18 @@ void KickModule::updatePreviousAngles() {
 		previous_commands_[joint] = commands_->angles_[joint];
 }
 
+bool KickModule::footSensorHasValues() {
 
+    for(int i = fsrLFL; i <= fsrRRR; ++i) {
+        if(sensors_->values_[i] <= DETECT)
+          return false;
+    }
+    return true;
+}
+
+// Sums the pressure values of the given foot region on the left foot
+// If the given region is Front it will add the value of the top
+// left and top right pressure sensors of the foot
 float KickModule::sumFsrs(FootSensorRegion r) {
 	int left_front[2] = {fsrLFL, fsrLFR};
 	int left_back[2] = {fsrLRL, fsrLRR};
@@ -182,6 +198,7 @@ float KickModule::sumFsrs(FootSensorRegion r) {
 	return sum;
 }
 
+// Initializes the pressure values for each of the 4 foot regions
 void KickModule::initFeetSensorValues() {
 	l_fsr_front_ = sumFsrs(Front); // pressure sensors for left foot
 	l_fsr_back_ = sumFsrs(Back);
@@ -189,6 +206,7 @@ void KickModule::initFeetSensorValues() {
 	l_fsr_left_ = sumFsrs(Right);
 }
 
+// Hip-strategy balancing based on feet pressure
 void KickModule::footPressureBalance() {
 	l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front); // pressure sensors for left foot
 	l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
@@ -202,10 +220,10 @@ void KickModule::footPressureBalance() {
 	float p_y_error = KP * y_error;
 
 	float d_x = x_error - x_prev_error_;
-	//float d_y = y_error - y_prev_error_;
+	float d_y = y_error - y_prev_error_;
 
 	float d_x_error_ = KD * d_x;
-	//float d_y_error_ = KD * d_y;
+	float d_y_error_ = KD * d_y;
 
 	//cout << "** horizontal velocity: " << d_x << endl;
 
@@ -218,9 +236,18 @@ void KickModule::footPressureBalance() {
 		float upc_xoffset = UKP * lperror + UKD * d_hip_angle;
 		float hac_xoffset = p_x_error + d_x_error_;
 
+    //ROLL
+        float lrerror = commands_->angles_[LHipRoll] - HIPROLL;
+		float d_roll_angle = commands_->angles_[LHipRoll] - roll_prev_angle_;
+
+		float upc_yoffset = UKP * lrerror + UKD * d_roll_angle;
+		float hac_yoffset = p_y_error + d_y_error_;
+
+
 		//cout << "** Upright Pose Controller error: " << commands_->angles_[LHipPitch] << " " << HIPSTAND << endl;
 		//cout << "** Horizontal Acceleration Current angle, offset: " << (RAD_T_DEG * commands_->angles_[LHipPitch]) << " " << (RAD_T_DEG * (p_x_error + d_x_error_)) << endl;
 		float newXAngle = commands_->angles_[LHipPitch] - ((abs(d_x) > XACCEL) ? (hac_xoffset) : (upc_xoffset));
+		float newYAngle = commands_->angles_[LHipRoll] - ((abs(d_x) > YACCEL) ? (hac_yoffset) : (upc_yoffset));
 
 		// (newXAngle < maxJointLimits[LHipPitch] && newXAngle > minJointLimits[LHipPitch]) 
 		if(newXAngle < BACKWARDHIP && newXAngle > FORWARDHIP) 
@@ -228,6 +255,13 @@ void KickModule::footPressureBalance() {
 			cout << "** NewXAngle: " << newXAngle << endl;   
 			commands_->angles_[LHipPitch] = newXAngle;
 			commands_->angles_[RHipPitch] = newXAngle;  
+		}
+
+        if(newYAngle < LEFTHIP && newYAngle > RIGHTHIP) 
+		{
+			cout << "** NewYAngle: " << newYAngle << endl;   
+			commands_->angles_[LHipRoll] = newYAngle;
+			commands_->angles_[RHipRoll] = -1.0f * newYAngle;  
 		}
 
 		hipframewait = WAIT;
@@ -241,6 +275,64 @@ void KickModule::footPressureBalance() {
 	x_prev_error_ = x_error;
 	y_prev_error_ = y_error;
 	hip_prev_angle_ = commands_->angles_[LHipPitch];
+    roll_prev_angle_ = commands_->angles_[LHipRoll];
+}
+
+void KickModule::stepBalance() {
+
+    // value for h0, for w = sqrt(g/h0);
+    // estimate time remaining for the swing
+    
+    Vector3<float> c;
+    calcCenterOfMass(joint_angles_->values_, c, true, 0.0f); //gives height of 275
+    cout << "******* calcCenterOfMass " << c.x <<", " << c.y << ", " << c.z << endl;
+    float h0 = c.z / 1000.0;
+    float x0 = c.x / 1000.0;
+    w_ = sqrt(9.81 / h0);
+    float vx = 0.1;
+    float c0 = (1.0/2) * (x0 + vx / w_);
+    float c1 = (1.0/2) * (x0 - vx / w_);
+    float d0 = (1.0/2) * (w_ * x0 + vx);
+    float d1 = (1.0/2) * (-1.0 * w_ * x0 + vx);
+    
+    float t = 0.05; //remaining time for the step in seconds
+    float x = c0 * exp(w_*t) + c1 * exp(-1.0*w_*t); //x position of the center of mass
+    float xv = d0 * exp(w_*t) + c1 * exp(-1.0*w_*t);
+    
+    cout << "___________com x " << x << endl;
+    cout << "___________com v " << x << endl;
+    rc_ = vx * sqrt(h0/9.81);
+    cout << "______rc " << rc_ << endl;
+}
+
+// Compute the spline for a step
+// params?
+void KickModule::calcStepSplinePts() {
+    int num_pts = 5; // ?
+
+
+    BodyPart::Part l_foot = BodyPart::left_foot;
+	Pose3D left_foot(body_model_->abs_parts_[l_foot].translation);
+
+	// translate to torso coordinates
+	Vector3<float> foot_to_torso_offset = left_foot.translation - body_model_->abs_parts_[BodyPart::torso].translation;
+
+	//left_target.translation.x = foot_to_torso_offset.x; //pendulum.x + left_foot_to_torso_offset.x;
+	//left_target.translation.y = foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;
+	//left_target.translation.z = -175.0; // - 10; //pendulum.z + left_foot_to_torso_offset.z;
+
+    double timesInMs[] = {0, 10, 20, 40, 50}; //?
+    double xs[] = {8, 18, 28, 18, 8};
+    double ys[] = {foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y}; // y never changes?
+    double zs[] = {-175, -165, -155, -165, -175}; 
+
+    //set spline
+    step_spline_.set(num_pts, timesInMs, xs, ys, zs, true);
+
+    
+    cout << "calcStepSplinePts()" << endl;
+    Vector3<float> step;
+    //step_spline_.calc(15, step);
 }
 
 void KickModule::processFrame() {
@@ -256,21 +348,23 @@ void KickModule::processFrame() {
 
 	Pose3D left_target(left_original);
 	//footPressureBalance(); // FEET PRESSURE
-
+    
 	if(walk_request_->start_balance_) {
 		kick_request_->kick_running_ = true;
+
+        
 
 		// STIFFNESS
 		// Maintain the stiffness from now on after we turn off walk    
 		walk_request_->noWalk();
 		initJointAngles();
 		initFeetSensorValues();
-
+        //stepBalance();
 		init_balance_ = true; // for initJointAngles
 
 		if(start_step_ == false) {
 			footPressureBalance();            
-
+            //calcStepSplinePts(); // _____________________remove this call from here ________________________
 
 			//walk_request_->noWalk();
 			//cout << "*TWO* Walk request: " << walkNames[walk_request_->motion_] << endl;
@@ -326,14 +420,6 @@ void KickModule::processFrame() {
 			right_target.translation.z = -175.0; //pendulum.z + left_foot_to_torso_offset.z;
 
 
-			right_target.translation.z = rfoot_z_[balance_count_];
-			right_target.translation.x = rfoot_x_[balance_count_];
-
-			//cout << "___ balance count " << balance_count_ << endl;
-			//cout << "**after translating to torso coordinates:" << endl;
-			//cout << "LEFT x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
-			//cout << "RIGHT x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl << endl;
-
 			if(balance_count_ == STOP) {
 				//start_step_ = true;
 				//walk_request_->start_balance_;
@@ -349,8 +435,6 @@ void KickModule::processFrame() {
 			bool right_compliant = true;
 
 			//inverse_kinematics_.calcLegJoints(left_target, right_target, commands_->angles_, robot_info_->dimensions_);
-			//commands_->angles_[LHipPitch] = -85 * DEG_T_RAD;
-			//commands_->angles_[RHipPitch] = -85 * DEG_T_RAD;
 
 			balance_count_++;   
 		} //if start_step
