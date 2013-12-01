@@ -32,8 +32,6 @@ enum FootSensorRegion {
 	Right
 };
 
-
-
 class KickModule : public Module {
 	public:
 		KickModule ();
@@ -41,7 +39,8 @@ class KickModule : public Module {
 		void specifyMemoryDependency();
 		void specifyMemoryBlocks();
 		void initSpecificModule();
-		void setStand(const float *stand_angles) {
+		void setStand(const float *stand_angles) 
+        {
 			for (int i = 0; i < NUM_JOINTS; i++)
 				STAND_ANGLES[i] = stand_angles[i];
 		}
@@ -49,6 +48,10 @@ class KickModule : public Module {
 		void processFrame();
 
 	private:
+        template <typename T> int sgn(T val)
+        {
+            return (T(0) < val) - (val < T(0));
+        }
 		int getFramesInState();
 		float getTimeInState();
 		float getMillisecondsInState();
@@ -102,6 +105,9 @@ class KickModule : public Module {
 		float hipframewait;
         float w_;
         float rc_;
+        float prev_com_x_;
+        float prev_com_y_;
+        int step_counter_;
 
 	public:
 		Spline3D swing_spline_;
@@ -138,7 +144,6 @@ class KickModule : public Module {
 
 		bool start_step_;
 		int balance_count_;
-		bool init_balance_;
 };
 
 #endif
