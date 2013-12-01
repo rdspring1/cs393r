@@ -89,7 +89,8 @@ void KickModule::initSpecificModule() {
 
 	walk_request_->start_balance_ = false;
 
-	start_step_ = false;
+	initStepPositions();
+	start_step_ = None;
 	balance_count_ = 0;
 	l_fsr_front_ = 0; // pressure sensors for left foot
 	l_fsr_back_ = 0;
@@ -100,16 +101,14 @@ void KickModule::initSpecificModule() {
 }
 
 void KickModule::initStepPositions() {
-	if(balance_count_ == 0) {
-
+	if(balance_count_ == 0) 
+    {
 		BodyPart::Part left_foot = BodyPart::left_foot;
 		Pose3D left_original = body_model_->abs_parts_[left_foot].translation;
-
 		Pose3D left_target(left_original);
 
 		BodyPart::Part right_foot = BodyPart::right_foot;
 		Pose3D right_original = body_model_->abs_parts_[right_foot].translation;
-
 		Pose3D right_target(right_original);
 
 		for(int i = 0; i < NUM_STEP_POSITIONS; i++) 
@@ -118,9 +117,9 @@ void KickModule::initStepPositions() {
 			rfoot_y_[i] = right_target.translation.y;
 
 			lfoot_x_[i] = left_target.translation.x;
-			lfoot_z_[i] = -175;
-
 			rfoot_x_[i] = right_target.translation.x;
+
+			lfoot_z_[i] = -175;
 		}
 		rfoot_z_[1] = -175;
 		rfoot_z_[2] = -165;
@@ -142,19 +141,16 @@ void KickModule::initStepPositions() {
 void KickModule::initJointAngles() {
 	if(balance_count_ == 0) 
     {
-		for(int joint = 0; joint < NUM_JOINTS; joint++) {
+		for(int joint = 0; joint < NUM_JOINTS; ++joint) {
 			commands_->angles_[joint] = joint_angles_->values_[joint];
 		}
-		for(int joint = 0; joint < NUM_JOINTS; joint++) {
+		for(int joint = 0; joint < NUM_JOINTS; ++joint) {
 			previous_commands_[joint] = joint_angles_->values_[joint];
 		} 
-		initStepPositions();
-		balance_count_++;
-
 	}
 	else 
     {
-		for(int joint = 0; joint < NUM_JOINTS; joint++)
+		for(int joint = 0; joint < NUM_JOINTS; ++joint)
 			commands_->angles_[joint] = previous_commands_[joint];
 	}
 
@@ -284,26 +280,24 @@ void KickModule::stepBalance() {
     calcCenterOfMass(joint_angles_->values_, c, true, 0.0f); //gives height of 275
     //cout << "******* calcCenterOfMass " << c.x <<", " << c.y << ", " << c.z << endl;
 
+    float h0 = c.z / 1000.0;
+    float x0 = c.x / 1000.0; //to meters
+    w_ = sqrt(9.81 / h0);
+    //cout << "****** x0 prev_com_x " << x0 << " " << prev_com_x_ << endl;
+    float v = 0.1; //((x0 - prev_com_x_) / 1000.0) * 100; //convert to meters, we have m/10ms, then convert to seconds
+    float c0 = (1.0/2) * (x0 + v / w_);
+    float c1 = (1.0/2) * (x0 - v / w_);
+    float d0 = (1.0/2) * (w_ * x0 + v);
+    float d1 = (1.0/2) * (-1.0 * w_ * x0 + v);
     
-        float h0 = c.z / 1000.0;
-        float x0 = c.x / 1000.0; //to meters
-        w_ = sqrt(9.81 / h0);
-        //cout << "****** x0 prev_com_x " << x0 << " " << prev_com_x_ << endl;
-        float v = 0.1; //((x0 - prev_com_x_) / 1000.0) * 100; //convert to meters, we have m/10ms, then convert to seconds
-        float c0 = (1.0/2) * (x0 + v / w_);
-        float c1 = (1.0/2) * (x0 - v / w_);
-        float d0 = (1.0/2) * (w_ * x0 + v);
-        float d1 = (1.0/2) * (-1.0 * w_ * x0 + v);
-        
-        float t = 0.05 - 0.010*step_counter_; //remaining time for the step in seconds CHANGE THIS
-        float x = c0 * exp(w_*t) + c1 * exp(-1.0*w_*t); //x position of the center of mass
-        float xv = d0 * exp(w_*t) + c1 * exp(-1.0*w_*t);
-        
-        //cout << "___________com x " << x << endl;
-        //cout << "___________com v " << xv << endl;
-        
-        
-        prev_com_x_ = x0; //update the previous com x
+    float t = 0.05 - 0.010*step_counter_; //remaining time for the step in seconds CHANGE THIS
+    float x = c0 * exp(w_*t) + c1 * exp(-1.0*w_*t); //x position of the center of mass
+    float xv = d0 * exp(w_*t) + c1 * exp(-1.0*w_*t);
+    
+    //cout << "___________com x " << x << endl;
+    //cout << "___________com v " << xv << endl;
+          
+    prev_com_x_ = x0; //update the previous com x
     if(step_counter_ < 5 && xv > 0.1){ //how long should the step be?
         rc_ = xv * sqrt(h0/9.81);
         cout << "______rc mm, meters, vx(meters) " << rc_ * 1000 << " " << rc_ << " " << xv << endl; //convert to mm
@@ -312,10 +306,8 @@ void KickModule::stepBalance() {
 }
 
 // Compute the spline for a step
-// params?
 void KickModule::calcStepSplinePts() {
-    int num_pts = 5; // ?
-
+    int num_pts = 5;
 
     BodyPart::Part l_foot = BodyPart::left_foot;
 	Pose3D left_foot(body_model_->abs_parts_[l_foot].translation);
@@ -323,27 +315,19 @@ void KickModule::calcStepSplinePts() {
 	// translate to torso coordinates
 	Vector3<float> foot_to_torso_offset = left_foot.translation - body_model_->abs_parts_[BodyPart::torso].translation;
 
-	//left_target.translation.x = foot_to_torso_offset.x; //pendulum.x + left_foot_to_torso_offset.x;
-	//left_target.translation.y = foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;
-	//left_target.translation.z = -175.0; // - 10; //pendulum.z + left_foot_to_torso_offset.z;
-
-    double timesInMs[] = {0, 10, 20, 40, 50}; //?
+    double timesInMs[] = {0, 10, 20, 40, 50};
     double xs[] = {8, 18, 28, 18, 8};
-    double ys[] = {foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y}; // y never changes?
+    double ys[] = {foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y, foot_to_torso_offset.y};
     double zs[] = {-175, -165, -155, -165, -175}; 
 
     //set spline
     step_spline_.set(num_pts, timesInMs, xs, ys, zs, true);
 
-    
-    cout << "calcStepSplinePts()" << endl;
     Vector3<float> step;
-    //step_spline_.calc(15, step);
+    step_spline_.calc(15, step);
 }
 
 void KickModule::processFrame() {
-	//processKickRequest();
- 
 	if(walk_request_->start_balance_) 
     {
 		kick_request_->kick_running_ = true;
@@ -354,87 +338,86 @@ void KickModule::processFrame() {
 		initJointAngles();
 		initFeetSensorValues();
 
-		if(!start_step_) 
-        {
-            // Position and Velocity - Pressure Sensors for Left Foot
-	        l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
-	        l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
-	        l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
-	        l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+        // Position and Velocity - Pressure Sensors for Left Foot
+        l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
+        l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
+        l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
+        l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
 
-	        float x_error = l_fsr_front_ - l_fsr_back_;
-	        float y_error = l_fsr_right_ - l_fsr_left_;
+        float x_error = l_fsr_front_ - l_fsr_back_;
+        float y_error = l_fsr_right_ - l_fsr_left_;
 
-	        float d_x = x_error - x_prev_error_;
-	        float d_y = y_error - y_prev_error_;
+        float d_x = x_error - x_prev_error_;
+        float d_y = y_error - y_prev_error_;
 
-        	if(hipframewait == 0) 
-	        {
-			    if(abs(d_x) > XACCEL)
-                {
-                    footPitchBalance(x_error, d_x);
-                }
-                else
-                {
-                    uprightPitchController();
-                }
-
-                if(abs(d_y) > YACCEL)
-                {
-                    footRollBalance(y_error, d_y);
-                }
-                else
-                {
-                    uprightRollController();
-                }
-
-		        hipframewait = WAIT;
-	        }
-
-            if(hipframewait > 0)
+        bool front = sumFsrs(Front) < DETECT;
+        bool back = sumFsrs(Back) < DETECT;
+        bool left =  sumFsrs(Left) < DETECT;
+        bool right =  sumFsrs(Right) < DETECT;
+        if(abs(d_x) > XACCEL && (front || back))
+        {   
+            if(front)
             {
-	            --hipframewait;
+                // Execute Backward Step
+                start_step_ = Back;
+            }
+            else
+            {
+                // Execute Forward Step
+                start_step_ = Front;
+            }
+        }
+    	else if(hipframewait == 0) 
+        {
+		    if(abs(d_x) > XACCEL)
+            {
+                footPitchBalance(x_error, d_x);
+            }
+            else
+            {
+                uprightPitchController();
             }
 
-	        hip_prev_angle_ = commands_->angles_[LHipPitch];
-            roll_prev_angle_ = commands_->angles_[LHipRoll];
-	        x_prev_error_ = x_error;
-	        y_prev_error_ = y_error;
+            if(abs(d_y) > YACCEL)
+            {
+                footRollBalance(y_error, d_y);
+            }
+            else
+            {
+                uprightRollController();
+            }
 
-                      
-            //calcStepSplinePts(); // _____________________remove this call from here ________________________
+	        hipframewait = WAIT;
+        }
 
-			//cout << "*TWO* Walk request: " << walkNames[walk_request_->motion_] << endl;
-			float roll = DEG_T_RAD * 0;
+        if(hipframewait > 0)
+        {
+            --hipframewait;
+        }
+
+        hip_prev_angle_ = commands_->angles_[LHipPitch];
+        roll_prev_angle_ = commands_->angles_[LHipRoll];
+        x_prev_error_ = x_error;
+        y_prev_error_ = y_error;
+         
+
+		if(start_step_) 
+        {              
 			Vector3<float> pendulum = body_model_->abs_parts_[BodyPart::torso].translation;
 
 			BodyPart::Part left_foot = BodyPart::left_foot;
 			Pose3D left_original = body_model_->abs_parts_[left_foot].translation;
-			Pose3D left_rel = body_model_->rel_parts_[left_foot].translation;
 			Pose3D left_target(left_original);
+			Pose3D left_rel = body_model_->rel_parts_[left_foot].translation;
 
 			BodyPart::Part right_foot = BodyPart::right_foot;
 			Pose3D right_original = body_model_->abs_parts_[right_foot].translation;
-			Pose3D right_rel = body_model_->rel_parts_[right_foot].translation;
 			Pose3D right_target(right_original);
+			Pose3D right_rel = body_model_->rel_parts_[right_foot].translation;
 
 			// translate to torso coordinates
 			Vector3<float> left_foot_to_torso_offset = left_target.translation - body_model_->abs_parts_[BodyPart::torso].translation;
 			Vector3<float> right_foot_to_torso_offset = right_target.translation - body_model_->abs_parts_[BodyPart::torso].translation;
-
-			//cout << "left foot relative to origin:" << endl;
-			//cout << "x y z " << body_model_->rel_parts_[left_foot].translation.x << ", " << body_model_->rel_parts_[left_foot].translation.y << ", " << body_model_->rel_parts_[left_foot].translation.z << endl << endl;
-
-			//cout << "**before translating to torso coordinates:" << endl;
-			//cout << "left x y z " << left_target.translation.x << ", " << left_target.translation.y << ", " << left_target.translation.z << endl;
-			//cout << "right x y z " << right_target.translation.x << ", " << right_target.translation.y << ", " << right_target.translation.z << endl << endl;
-
-			//cout << "torso x y z " << pendulum.x << " " << pendulum.y << " " << pendulum.z << endl;
-			//cout << "offsets x y z " << left_foot_to_torso_offset.x << " " << left_foot_to_torso_offset.y << " " << left_foot_to_torso_offset.z << endl;
-
-			float newx = pendulum.x + left_foot_to_torso_offset.x;
-			float newy = pendulum.y + left_foot_to_torso_offset.y;
-			float newz = pendulum.z + left_foot_to_torso_offset.z;
 
 			left_target.translation.x = left_foot_to_torso_offset.x; //pendulum.x + left_foot_to_torso_offset.x;
 			left_target.translation.y = left_foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;
@@ -444,24 +427,26 @@ void KickModule::processFrame() {
 			right_target.translation.y = right_foot_to_torso_offset.y; //pendulum.y + left_foot_to_torso_offset.y;            
 			right_target.translation.z = -175.0; //pendulum.z + left_foot_to_torso_offset.z;
 
+            right_target.translation.z = rfoot_z_[balance_count_];
+            if(start_step_ == Front)
+            {
+                cout << "Execute Step - Front" << endl;
+                right_target.translation.x = -rfoot_x_[balance_count_];
+            }
+            else
+            {
+                cout << "Execute Step - Back" << endl;
+                right_target.translation.x = -rfoot_x_[balance_count_];
+            }
 
-			//if(balance_count_ == STOP) {
-				//start_step_ = true;
-				//walk_request_->start_balance_;
-				//walk_request_->stand();
-			//}
+			if(balance_count_ == STOP) 
+            {
+				start_step_ = None;
+                balance_count_ = 0;
+			}
+			inverse_kinematics_.calcLegJoints(left_target, right_target, commands_->angles_, robot_info_->dimensions_);
 
-
-			// check if inverse kinematics is feasible
-			// call inverse kinematics commandLegsRelativeToTorso
-			// print out the before and after angles for the legs
-
-			bool left_compliant = true;
-			bool right_compliant = true;
-
-			//inverse_kinematics_.calcLegJoints(left_target, right_target, commands_->angles_, robot_info_->dimensions_);
-
-			balance_count_++;   
+			++balance_count_;   
 		} //if start_step
 
 
@@ -475,59 +460,6 @@ void KickModule::processFrame() {
 	}//if start balance
 
 } //process
-
-
-// previous process frame
-/*
-   void KickModule::processFrame() {
-   processKickRequest();
-
-// cout << "*ONE* INITIAL stance command_body_model x y z " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.x << ", " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.y << ", " << command_body_model_.abs_parts_[BodyPart::left_foot].translation.z << endl;
-
-//cout << "*ONE* INITIAL stance body_model x y z " << body_model_->abs_parts_[BodyPart::left_foot].translation.x << ", " << body_model_->abs_parts_[BodyPart::left_foot].translation.y << ", " << body_model_->abs_parts_[BodyPart::left_foot].translation.z << endl;
-//cout << "*  WALK REQUEST : " << walkNames[walk_request_->motion_] << endl;
-if (kick_module_->state_ == KickState::STAND) {
-kick_request_->kick_running_ = true;
-// only transition into kick if we think we're stable
-//std::cout << "walk_info_->instability_: " << walk_info_->instability_ << std::endl;    
-if ((walk_info_->instability_ < walk_info_->stabilizer_off_threshold_) && (!walk_info_->walk_is_active_)) {
-if (getFramesInState() >= state_params_->state_time / 10) { // divide by 10 to convert from ms to frames.
-walk_request_->noWalk();
-transitionToState((KickState::State)(kick_module_->state_ + 1));
-} else {
-walk_request_->stand();
-}
-} else {
-walk_request_->stand();
-transitionToState(KickState::STAND); // restart this state
-return;
-}
-}
-
-if ((kick_module_->state_ == KickState::WALK) && (!walk_info_->walk_is_active_) && (frame_info_->seconds_since_start > kick_module_->state_start_time_ + 0.5)) {   
-//cout << "______________________ STARTED KICK" << endl;      
-startKick();
-}
-
-// handle transitions
-while ((kick_module_->state_ != KickState::NONE) && (getFramesInState() >= state_params_->state_time / 10)) { // divide by 10 to convert from ms to frames.
-if (kick_module_->state_ == KickState::WALK)
-break;
-transitionToState((KickState::State)(kick_module_->state_ + 1));
-}
-
-if (kick_module_->state_ == KickState::NONE) {
-// not in a kick, let vision know
-kick_request_->kick_running_ = false;
-kick_module_->kick_type_ = Kick::NO_KICK;
-} else {
-// if we're still in a kick, do it
-kick();
-setKickOdometry();
-kick_request_->kick_running_ = true;
-}
-}
- */
 
 int KickModule::getFramesInState() {
 	return frame_info_->frame_id - kick_module_->state_start_frame_;

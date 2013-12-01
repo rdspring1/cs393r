@@ -25,11 +25,13 @@ class SpeechBlock;
 class WalkInfoBlock;
 class WalkRequestBlock;
 
-enum FootSensorRegion {
+enum FootSensorRegion 
+{
+    None,
 	Front,
 	Back,
 	Left,
-	Right
+	Right,
 };
 
 class KickModule : public Module {
