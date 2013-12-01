@@ -80,11 +80,18 @@ class KickModule : public Module {
 		void updatePreviousAngles();
 		void initStepPositions();
 		void initFeetSensorValues();
-		void footPressureBalance();
 		float sumFsrs(FootSensorRegion r);
         void calcStepSplinePts();
         void stepBalance();
         bool footSensorHasValues();
+        void setHipPitch(float newXAngle);
+        void setHipRoll(float newYAngle);
+        void uprightPitchController();
+        void uprightRollController();
+        // Joint HipPitch balancing based on feet pressure
+        void footPitchBalance(float x_error, float d_x);
+        // Joint HipRoll balancing based on feet pressure
+        void footRollBalance(float y_error, float d_y);
 
 	private:
 		float previous_commands_[NUM_JOINTS];

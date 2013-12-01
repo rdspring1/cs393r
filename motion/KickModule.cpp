@@ -18,14 +18,14 @@
 #define XBACKSUPPORT -0.03025f
 #define AVEL 7.3017f
 #define STOP 6
-#define UKP 0.02f
+#define UKP 0.04f
 #define UKD 0.02f
 #define KP 0.08f
 #define KD 0.025f
 #define SMOOTH 0.65
 #define WAIT 5
 #define XACCEL 0.08f
-#define YACCEL 0.08f
+#define YACCEL 0.05f
 #define HIPSTAND (DEG_T_RAD * -30.0f)
 #define HIPROLL (DEG_T_RAD * -0.26f)
 #define FORWARDHIP (DEG_T_RAD * -55.0f)
@@ -215,75 +215,62 @@ void KickModule::initFeetSensorValues() {
 	l_fsr_left_ = sumFsrs(Right);
 }
 
+void KickModule::setHipPitch(float newXAngle)
+{
+	if(newXAngle < BACKWARDHIP && newXAngle > FORWARDHIP) 
+	{
+		//cout << "** NewXAngle: " << newXAngle << endl;   
+		commands_->angles_[LHipPitch] = newXAngle;
+		commands_->angles_[RHipPitch] = newXAngle;  
+	}
+}
 
-// Hip-strategy balancing based on feet pressure
-void KickModule::footPressureBalance() {
-	l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front); // pressure sensors for left foot
-	l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
-	l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
-	l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+void KickModule::setHipRoll(float newYAngle)
+{
+    if(newYAngle < LEFTHIP && newYAngle > RIGHTHIP) 
+	{
+		//cout << "** NewYAngle: " << newYAngle << endl;   
+		commands_->angles_[LHipRoll] = newYAngle;
+		commands_->angles_[RHipRoll] = -1.0f * newYAngle;  
+	}
+}
 
-	float x_error = l_fsr_front_ - l_fsr_back_;
-	float y_error = l_fsr_right_ - l_fsr_left_;
+void KickModule::uprightPitchController()
+{
+	// HIP PITCH
+	float lperror = commands_->angles_[LHipPitch] - HIPSTAND;
+	float d_hip_angle = commands_->angles_[LHipPitch] - hip_prev_angle_;
+	float upc_xoffset = UKP * sgn(lperror) * min(abs(lperror), 1.0f);
+	setHipPitch(commands_->angles_[LHipPitch] - upc_xoffset);
+}
 
-	float p_x_error = KP * x_error;
-	float p_y_error = KP * y_error;
+void KickModule::uprightRollController()
+{
+    // HIP ROLL
+    float lrerror = commands_->angles_[LHipRoll] - HIPROLL;
+	float d_roll_angle = commands_->angles_[LHipRoll] - roll_prev_angle_;
+	float upc_yoffset = UKP * sgn(lrerror) * min(abs(lrerror), 1.0f) + UKD * d_roll_angle;
+    setHipRoll(commands_->angles_[LHipRoll] - upc_yoffset);
+}
 
-	float d_x = x_error - x_prev_error_;
-	float d_y = y_error - y_prev_error_;
-
-	float d_x_error_ = KD * d_x;
-	float d_y_error_ = KD * d_y;
-
+// Joint HipPitch balancing based on feet pressure
+void KickModule::footPitchBalance(float x_error, float d_x) 
+{
 	//cout << d_x << endl;
+	float p_x_error = KP * x_error;
+	float d_x_error_ = KD * d_x;
+    float hac_xoffset = p_x_error + d_x_error_;
+	setHipPitch(commands_->angles_[LHipPitch] - hac_xoffset);
+}
+
+// Joint HipRoll balancing based on feet pressure
+void KickModule::footRollBalance(float y_error, float d_y)
+{
     //cout << d_y << endl;
-	if(hipframewait == 0) 
-	{
-		// HIP PITCH
-		float lperror = commands_->angles_[LHipPitch] - HIPSTAND;
-		float d_hip_angle = commands_->angles_[LHipPitch] - hip_prev_angle_;
-
-		float upc_xoffset = UKP * sgn(lperror) * min(abs(lperror), 1.0f);
-		float hac_xoffset = p_x_error + d_x_error_;
-
-        // HIP ROLL
-        float lrerror = commands_->angles_[LHipRoll] - HIPROLL;
-		float d_roll_angle = commands_->angles_[LHipRoll] - roll_prev_angle_;
-
-		float upc_yoffset = UKP * sgn(lrerror) + UKD * d_roll_angle;
-		float hac_yoffset = p_y_error + d_y_error_;
-
-		//cout << "** Upright Pose Controller error: " << commands_->angles_[LHipPitch] << " " << HIPSTAND << endl;
-		//cout << "** Horizontal Acceleration Current angle, offset: " << (RAD_T_DEG * commands_->angles_[LHipPitch]) << " " << (RAD_T_DEG * (p_x_error + d_x_error_)) << endl;
-		float newXAngle = commands_->angles_[LHipPitch] - ((abs(d_x) > XACCEL) ? (hac_xoffset) : (upc_xoffset));
-	    float newYAngle = commands_->angles_[LHipRoll] - ((abs(d_x) > YACCEL) ? (hac_yoffset) : (upc_yoffset));
-
-		if(newXAngle < BACKWARDHIP && newXAngle > FORWARDHIP) 
-		{
-			//cout << "** NewXAngle: " << newXAngle << endl;   
-			commands_->angles_[LHipPitch] = newXAngle;
-			commands_->angles_[RHipPitch] = newXAngle;  
-		}
-
-        if(newYAngle < LEFTHIP && newYAngle > RIGHTHIP) 
-		{
-			//cout << "** NewYAngle: " << newYAngle << endl;   
-			commands_->angles_[LHipRoll] = newYAngle;
-			commands_->angles_[RHipRoll] = -1.0f * newYAngle;  
-		}
-
-		hipframewait = WAIT;
-	}
-
-	if(hipframewait > 0)
-	{
-		--hipframewait;
-	}
-
-	x_prev_error_ = x_error;
-	y_prev_error_ = y_error;
-	hip_prev_angle_ = commands_->angles_[LHipPitch];
-    roll_prev_angle_ = commands_->angles_[LHipRoll];
+	float p_y_error = KP * y_error;
+	float d_y_error_ = KD * d_y;
+	float hac_yoffset = p_y_error + d_y_error_;
+    setHipRoll(commands_->angles_[LHipRoll] - hac_yoffset);
 }
 
 void KickModule::stepBalance() {
@@ -369,7 +356,51 @@ void KickModule::processFrame() {
 
 		if(!start_step_) 
         {
-			footPressureBalance();
+            // Position and Velocity - Pressure Sensors for Left Foot
+	        l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
+	        l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
+	        l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
+	        l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+
+	        float x_error = l_fsr_front_ - l_fsr_back_;
+	        float y_error = l_fsr_right_ - l_fsr_left_;
+
+	        float d_x = x_error - x_prev_error_;
+	        float d_y = y_error - y_prev_error_;
+
+        	if(hipframewait == 0) 
+	        {
+			    if(abs(d_x) > XACCEL)
+                {
+                    footPitchBalance(x_error, d_x);
+                }
+                else
+                {
+                    uprightPitchController();
+                }
+
+                if(abs(d_y) > YACCEL)
+                {
+                    footRollBalance(y_error, d_y);
+                }
+                else
+                {
+                    uprightRollController();
+                }
+
+		        hipframewait = WAIT;
+	        }
+
+            if(hipframewait > 0)
+            {
+	            --hipframewait;
+            }
+
+	        hip_prev_angle_ = commands_->angles_[LHipPitch];
+            roll_prev_angle_ = commands_->angles_[LHipRoll];
+	        x_prev_error_ = x_error;
+	        y_prev_error_ = y_error;
+
                       
             //calcStepSplinePts(); // _____________________remove this call from here ________________________
 
