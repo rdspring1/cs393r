@@ -356,12 +356,12 @@ void KickModule::processFrame() {
         bool right =  sumFsrs(Right) < DETECT;
         if(abs(d_x) > XACCEL && (front || back))
         {   
-            if(front)
+            if(sgn(d_x) > 0)
             {
                 // Execute Backward Step
                 start_step_ = Back;
             }
-            else
+            else if (sgn(d_x) <= 0)
             {
                 // Execute Forward Step
                 start_step_ = Front;
