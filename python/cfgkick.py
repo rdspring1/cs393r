@@ -3,11 +3,11 @@ StraightKick = core.KickParameters()
 
 # times in milliseconds
 liftAmount = 40 #25
-backAmount = -80
-throughAmount = 80
+backAmount = -50
+throughAmount = 100
 liftAlignAmount = 60
 liftKickAmount = 25
-comHeight = 175 # this should be the height of the walk
+comHeight = 170 # this should be the height of the walk
 comOffset = 10
 comOffsetX = 15
 kick_time = 0
@@ -16,74 +16,74 @@ info = StraightKick.getStateInfoPtr(core.KickState.STAND)
 info.state_time = 200 # decrease this if possible
 info.joint_time = 200
 info.com = core.vector3_float(comOffsetX,50,comHeight)
-info.swing = core.vector3_float(0,100,0)
+info.swing = core.vector3_float(0,110,0)
 kick_time = kick_time + info.state_time
 
 info = StraightKick.getStateInfoPtr(core.KickState.SHIFT)
 info.state_time = 150
 info.joint_time = 150
 info.com = core.vector3_float(comOffsetX,comOffset + 30,comHeight)
-info.swing = core.vector3_float(0,100,0)
+info.swing = core.vector3_float(0,110,0)
 kick_time = kick_time + info.state_time
 
 info = StraightKick.getStateInfoPtr(core.KickState.LIFT)
 info.state_time = 50
-info.joint_time = 50
+info.joint_time = 150
 info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(0,100,10)
+info.swing = core.vector3_float(0,110,10)
 kick_time = kick_time + info.state_time
 
 info = StraightKick.getStateInfoPtr(core.KickState.ALIGN)
 info.state_time = 150
 info.joint_time = 150
 info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(backAmount,100,liftAlignAmount)
+info.swing = core.vector3_float(backAmount,110,liftAlignAmount)
 kick_time = kick_time + info.state_time
 
 info = StraightKick.getStateInfoPtr(core.KickState.KICK1)
 info.state_time = 0
 info.joint_time = 50
 info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(0,100,(liftKickAmount+liftAlignAmount)/2)
+info.swing = core.vector3_float(0,110,(liftKickAmount+liftAlignAmount)/2)
 kick_time = kick_time + info.state_time
 
 info = StraightKick.getStateInfoPtr(core.KickState.KICK2)
 info.state_time = 0
 info.joint_time = 50
 info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(throughAmount,100,liftKickAmount)
+info.swing = core.vector3_float(backAmount,110,liftKickAmount)
 kick_time = kick_time + info.state_time
 
-info = StraightKick.getStateInfoPtr(core.KickState.RESETFOOT)
-info.state_time = 150
-info.joint_time = 150
-info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(0,100,liftAmount)
+#info = StraightKick.getStateInfoPtr(core.KickState.RESETFOOT)
+#info.state_time = 150
+#info.joint_time = 150
+#info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
+#info.swing = core.vector3_float(0,110,liftAmount)
 
 info = StraightKick.getStateInfoPtr(core.KickState.FOOTDOWN)
-info.state_time = 50
-info.joint_time = 50
-info.com = core.vector3_float(comOffsetX,comOffset + 20,comHeight)
-info.swing = core.vector3_float(0,100,liftAmount/2)
+info.state_time = 0
+info.joint_time = 300
+info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
+info.swing = core.vector3_float(0, 110,liftAmount/2)
 
 info = StraightKick.getStateInfoPtr(core.KickState.SHIFTBACK)
-info.state_time = 500 #75
-info.joint_time = 75
-info.com = core.vector3_float(comOffsetX,50,comHeight)
-info.swing = core.vector3_float(0,100,0)
+info.state_time = 0 #500
+info.joint_time = 500
+info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
+info.swing = core.vector3_float(0,110,0)
 
 info = StraightKick.getStateInfoPtr(core.KickState.FINISHSTAND)
 info.state_time = 500
 info.joint_time = 500
 info.com = core.vector3_float(comOffsetX/2,50,comHeight)
-info.swing = core.vector3_float(0,100,0)   
+info.swing = core.vector3_float(backAmount,110,0)   
 
 # SPLINE STATE
 info = StraightKick.getStateInfoPtr(core.KickState.SPLINE)
 info.state_time = 100
 info.joint_time = info.state_time
 info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(0,100,0)
+info.swing = core.vector3_float(0,110,0)
 
 # these aren't used for this kick, but are needed to make lua happy
 StraightKick.l_hip_roll_before_ = -0.4;
@@ -169,20 +169,20 @@ info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
 info.swing = core.vector3_float(throughAmount,100,liftKickAmount) # 80,100,35
 kick_time = kick_time + info.state_time
 
-info = StraightSuperKick.getStateInfoPtr(core.KickState.RESETFOOT)
-info.state_time = 3000
-info.joint_time = 3000
-info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
-info.swing = core.vector3_float(0,100,liftAmount)
+##info = StraightSuperKick.getStateInfoPtr(core.KickState.RESETFOOT)
+##info.state_time = 3000
+##info.joint_time = 3000
+##info.com = core.vector3_float(comOffsetX,comOffset,comHeight)
+##info.swing = core.vector3_float(0,100,liftAmount)
 
 info = StraightSuperKick.getStateInfoPtr(core.KickState.FOOTDOWN)
-info.state_time = 150
+info.state_time = 0
 info.joint_time = 150
 info.com = core.vector3_float(comOffsetX,comOffset + 20,comHeight)
 info.swing = core.vector3_float(0,100,liftAmount/2)
 
 info = StraightSuperKick.getStateInfoPtr(core.KickState.SHIFTBACK)
-info.state_time = 500 #75
+info.state_time = 0 #75
 info.joint_time = 250
 info.com = core.vector3_float(comOffsetX,50,comHeight)
 info.swing = core.vector3_float(0,100,0)

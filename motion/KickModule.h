@@ -83,7 +83,7 @@ class KickModule : public Module {
 		void initStepPositions();
 		void initFeetSensorValues();
 		float sumFsrs(FootSensorRegion r);
-        void calcStepSplinePts();
+        void calcStepSplinePts(float x);
         void stepBalance();
         bool footSensorHasValues();
         void setHipPitch(float newXAngle);
@@ -94,6 +94,8 @@ class KickModule : public Module {
         void footPitchBalance(float x_error, float d_x);
         // Joint HipRoll balancing based on feet pressure
         void footRollBalance(float y_error, float d_y);
+        void startStep(BodyPart::Part foot, const Vector3<float>& step, const Vector3<float>& other_foot);
+        void calcStanceSplinePts();
 
 	private:
 		float previous_commands_[NUM_JOINTS];
@@ -117,6 +119,11 @@ class KickModule : public Module {
         float prev_com_x_;
         float prev_com_y_;
         int step_counter_;
+        bool init_angles_;
+        bool stepMode;
+        bool stop; ///temp added for kick
+        bool set; ///temp added for kick
+        bool temp; ///erase this
 
 	public:
 		Spline3D swing_spline_;
@@ -151,7 +158,7 @@ class KickModule : public Module {
 		WalkRequestBlock *walk_request_;
 
 
-		bool start_step_;
+		FootSensorRegion start_step_;
 		int balance_count_;
 };
 
