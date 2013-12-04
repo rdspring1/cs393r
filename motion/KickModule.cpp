@@ -83,7 +83,7 @@ void KickModule::initSpecificModule() {
     {
 		previous_commands_[i] = joint_angles_->values_[i];
 	}
-    kick_lock_ = new Lock(Lock::getLockName(memory_,LOCK_KICK));
+    kick_lock_ = new Lock(Lock::getLockName(memory_,LOCK_KICK), true);
 
 	kick_module_->state_ = KickState::NONE;
 	kick_module_->kick_type_ = Kick::NO_KICK;
@@ -105,7 +105,6 @@ void KickModule::initSpecificModule() {
 	hipframewait = WAIT;
     init_angles_ = false;
     initBalance = false;
-    step_frame_count_ = 0;
     doing_step = false;
 }
 
@@ -426,22 +425,21 @@ void KickModule::processFrame()
         bool left =  sumFsrs(Left) < DETECT;
         bool right =  sumFsrs(Right) < DETECT;
 
-        if(kick_lock_->try_lock())
-        {
-            if(abs(d_x) > XACCEL && (front || back) && step_frame_count_ == 0)
-            {   
+        if(abs(d_x) > XACCEL && (front || back))
+        {   
+            if(kick_lock_->try_lock())
+            {
+                cout << "Start Kick Step" << endl;
                 if(sgn(d_x) > 0)
                 {
                     // Execute Forward Step
                     cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
                     start_step_ = Front;
                     ///walk_request_->start_balance_ = false; ///eb
-                    ///++step_frame_count_; ///eb
-                    ///params_normal_ = kickParamsGenerator(params_normal_, 40, true, true); ///eb original
+                    ///params_normal_ = kickParamsGenerator(params_normal_, 50, true, true); ///eb original
                     ///kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
                     ///processFrameForStep(); ///eb
                     ///doing_step = true; ///eb
-                    ///return; ///eb
                 }
                 else if (sgn(d_x) <= 0)
                 {
@@ -449,16 +447,14 @@ void KickModule::processFrame()
                     cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
                     start_step_ = Back;
                     walk_request_->start_balance_ = false; ///eb
-                    ++step_frame_count_; ///eb
-                    ///kickParamsGenerator(params_normal_, 40, false, true); ///eb
                     kickParamsGenerator(params_normal_, 50, false, true); ///eb
                     kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
                     processFrameForStep(); ///eb
                     doing_step = true; ///eb
-                    return; ///eb
                 }
+                kick_lock_->unlock();
+                return;
             }
-            kick_lock_->unlock();
         }
     	
         if(hipframewait == 0) 
@@ -716,7 +712,7 @@ KickParameters* KickModule::kickParamsGenerator(KickParameters * kp, float dista
     kick_time += info->state_time;
 
     info = kp->getStateInfoPtr(KickState::FINISHSTAND);
-    info->state_time = 500;
+    info->state_time = 8000;
     info->joint_time = 500;
     info->com = Vector3<float>(comOffsetX/2,50,comHeight);
     info->swing = Vector3<float>(backAmount,110,0);
@@ -747,7 +743,7 @@ void KickModule::startKick() {
 	else
 		transitionToState(KickState::STAND);
 	kick_module_->kick_start_time_ = frame_info_->seconds_since_start;
-	std::cout << "Kick requested: " <<  kick_module_->kick_type_ << "  requested distance: " << kick_module_->desired_kick_distance_ << "  requested angle: " << kick_module_->desired_kick_angle_ << std::endl;
+	//std::cout << "Kick requested: " <<  kick_module_->kick_type_ << "  requested distance: " << kick_module_->desired_kick_distance_ << "  requested angle: " << kick_module_->desired_kick_angle_ << std::endl;
 
 	/// setHead();
 }
@@ -774,6 +770,15 @@ void KickModule::setLegStiffness(float stiff) {
 }
 
 void KickModule::transitionToState(KickState::State state) {
+    std::cout << "___ transitionToState: " << KickState::getName(kick_module_->state_) << " -> " << KickState::getName(state) << " " << frame_info_->frame_id << std::endl;
+    if(initBalance && kick_module_->state_ == KickState::FINISHSTAND && state == KickState::NONE)
+    {
+        cout << "Exit Kick Step" << endl;
+        start_step_ = None;
+        doing_step = false;
+        walk_request_->start_balance_ = true;
+    }
+
 	if (kick_module_->state_ == KickState::STAND && !walk_info_->walk_is_active_) {
 		bool continue_kick = handleAiming();
 		if (continue_kick) {
@@ -800,13 +805,6 @@ void KickModule::transitionToState(KickState::State state) {
 	kick_module_->state_start_time_ = frame_info_->seconds_since_start;
 	kick_module_->state_start_frame_ = frame_info_->frame_id;
 	state_params_ = &(params_->states[kick_module_->state_]);
-
-    if(initBalance && kick_module_->state_ == KickState::FINISHSTAND && state == KickState:: NONE)
-    {
-        start_step_ = None;
-        doing_step = false;
-        walk_request_->start_balance_ = true;
-    }
 }
 
 bool KickModule::chooseKickLeg() {

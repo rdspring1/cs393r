@@ -162,7 +162,6 @@ class KickModule : public Module {
 
 		FootSensorRegion start_step_;
 		int balance_count_;
-        int step_frame_count_;
         bool doing_step;
         Lock* kick_lock_;
 };
