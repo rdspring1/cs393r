@@ -427,32 +427,26 @@ void KickModule::processFrame()
         {   
             if(sgn(d_x) > 0)
             {
-                // Execute Backward Step
-                cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
-                start_step_ = Back;
+                // Execute Forward Step
+                cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
+                start_step_ = Front;
                 walk_request_->start_balance_ = false;
                 ++step_frame_count_;
-                params_normal_->backAmount = 30.0f;
-                params_normal_->comHeight = 170.0f;
-                params_normal_->comOffset = -10.0f;
-                params_normal_->comOffsetX = -20.0f;
-                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 500);
+                params_normal_ = kickParamsGenerator(params_normal_, 40, true, true);
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100);
                 processFrameForStep();
                 doing_step = true;
                 return;
             }
             else if (sgn(d_x) <= 0)
             {
-                // Execute Forward Step
-                cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
-                start_step_ = Front;
+                // Execute Backward Step
+                cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
+                start_step_ = Back;
                 walk_request_->start_balance_ = false;
                 ++step_frame_count_;
-                params_normal_->backAmount *= 30.0f;
-                params_normal_->comHeight *= 170.0f;
-                params_normal_->comOffset *= -10.0f;
-                params_normal_->comOffsetX *= -20.0f;
-                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 500);
+                kickParamsGenerator(params_normal_, 40, false, true);
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100);
                 processFrameForStep();
                 doing_step = true;
                 return;
@@ -511,6 +505,7 @@ void KickModule::processFrame()
 
     if(step_frame_count_ == FRAME_COUNT)
     {
+        start_step_ = None;
         step_frame_count_ = 0;
         doing_step = false;
     }
@@ -655,6 +650,93 @@ void KickModule::processKickRequest() {
 	}
 }
 
+KickParameters* KickModule::kickParamsGenerator(KickParameters * kp, float distance, bool forward, bool rightleg)
+{
+    // times in milliseconds
+    float liftAmount = 40; 
+    float backAmount = (forward) ? abs(distance) : abs(distance) * -1.0f;
+    float throughAmount = 100;
+    float liftAlignAmount = 60;
+    float liftKickAmount = 25;
+    float comHeight = 175;
+    float comOffset = (rightleg) ? 5 : -5;
+    float comOffsetX = (forward) ? -20 : 20;
+    float kick_time = 0;
+    KickStateInfo* info = NULL;
+
+    info = kp->getStateInfoPtr(KickState::STAND);
+    info->state_time = 200;
+    info->joint_time = 200;
+    info->com = Vector3<float>(comOffsetX,50,comHeight);
+    info->swing = Vector3<float>(0,110,0);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::SHIFT);
+    info->state_time = 150;
+    info->joint_time = 150;
+    info->com = Vector3<float>(comOffsetX,comOffset + 30,comHeight);
+    info->swing = Vector3<float>(0,110,0);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::LIFT);
+    info->state_time = 50;
+    info->joint_time = 150;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(0,110,10);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::ALIGN);
+    info->state_time = 150;
+    info->joint_time = 150;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(backAmount,110,liftAlignAmount);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::KICK1);
+    info->state_time = 0;
+    info->joint_time = 50;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(0,110,(liftKickAmount+liftAlignAmount)/2);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::KICK2);
+    info->state_time = 0;
+    info->joint_time = 50;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(backAmount,110,liftKickAmount);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::FOOTDOWN);
+    info->state_time = 0;
+    info->joint_time = 300;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(0, 110,liftAmount/2);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::SHIFTBACK);
+    info->state_time = 0;
+    info->joint_time = 500;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(0,110,0);
+    kick_time += info->state_time;
+
+    info = kp->getStateInfoPtr(KickState::FINISHSTAND);
+    info->state_time = 500;
+    info->joint_time = 500;
+    info->com = Vector3<float>(comOffsetX/2,50,comHeight);
+    info->swing = Vector3<float>(backAmount,110,0);
+    kick_time += info->state_time;
+
+    // SPLINE STATE
+    info = kp->getStateInfoPtr(KickState::SPLINE);
+    info->state_time = 100;
+    info->joint_time = info->state_time;
+    info->com = Vector3<float>(comOffsetX,comOffset,comHeight);
+    info->swing = Vector3<float>(0,110,0);
+    kick_time += info->state_time;
+    return kp;
+}
+
 void KickModule::startKick() {
 	kick_module_->kick_type_ = kick_request_->kick_type_;
 	kick_module_->swing_leg_ = kick_request_->kick_leg_;
@@ -723,11 +805,6 @@ void KickModule::transitionToState(KickState::State state) {
 	kick_module_->state_start_time_ = frame_info_->seconds_since_start;
 	kick_module_->state_start_frame_ = frame_info_->frame_id;
 	state_params_ = &(params_->states[kick_module_->state_]);
-
-    //if(initBalance && kick_module_->state_ == KickState::FINISHSTAND && state == KickState::NONE)
-    //{
-    //    walk_request_->start_balance_ = true;
-    //}
 }
 
 bool KickModule::chooseKickLeg() {

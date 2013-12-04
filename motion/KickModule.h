@@ -97,6 +97,7 @@ class KickModule : public Module {
         void startStep(BodyPart::Part foot, const Vector3<float>& step, const Vector3<float>& other_foot);
         void calcStanceSplinePts();
         void processFrameForStep();
+        KickParameters* kickParamsGenerator(KickParameters * kp, float distance, bool forward, bool rightleg);
 
 	private:
 		float previous_commands_[NUM_JOINTS];

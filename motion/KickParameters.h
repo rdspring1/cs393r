@@ -63,30 +63,10 @@ struct KickStateInfo {
 #define MAX_SPLINE_POINTS 20
 
 struct KickParameters {
-    // times in milliseconds
-    float liftAmount;
-    float backAmount;
-    float throughAmount;
-    float liftAlignAmount;
-    float liftKickAmount;
-    float comHeight; // this should be the height of the walk
-    float comOffset;
-    float comOffsetX;
-    float kick_time;
-
   KickParameters():
     num_swing_spline_pts(-1),
     num_stance_spline_pts(-1),
-    step_into_kick_(false),
-    liftAmount(40.0f),
-    backAmount(30.0f),
-    throughAmount(100.0f),
-    liftAlignAmount(60.0f),
-    liftKickAmount(25.0f),
-    comHeight(170.0f),
-    comOffset(10.0f),
-    comOffsetX(10.0f),
-    kick_time(0.0f)
+    step_into_kick_(false)
   { }
 
   // splines
