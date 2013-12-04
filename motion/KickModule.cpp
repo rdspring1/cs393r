@@ -35,6 +35,7 @@
 #define RIGHTHIP (DEG_T_RAD * -5.0f)
 #define DETECT 0.02f
 #define M_T_MM 1000
+#define FRAME_COUNT 100
 
 using namespace std;
 
@@ -90,9 +91,9 @@ void KickModule::initSpecificModule() {
 	params_super_ = &kick_params_->params_super_;
 
 	walk_request_->start_balance_ = false;
+    walk_request_->in_step_ = 0;
 
 	start_step_ = None;
-    stepMode = false;
 	balance_count_ = 0;
 	l_fsr_front_ = 0; // pressure sensorstepBalances for left foot
 	l_fsr_back_ = 0;
@@ -101,6 +102,9 @@ void KickModule::initSpecificModule() {
 	hip_prev_angle_ = HIPSTAND;
 	hipframewait = WAIT;
     init_angles_ = false;
+    initBalance = false;
+    step_frame_count_ = 0;
+    doing_step = false;
 }
 
 // Initializes the angles that are going to be modified based on balance status
@@ -320,7 +324,6 @@ void KickModule::stepBalance() {
     //if(step_counter_ < 5 && xv > 0.1){ //how long should the step be?
     if(step_counter_ < NUMPTS) 
     {
-        stepMode = true;
         rc_ = xv * sqrt(h0/9.81);
         //cout << "______rc mm, meters, vx(meters) " << rc_ * M_T_MM << " " << rc_ << " " << xv << endl; //convert to mm
         calcStepSplinePts(rc_ * M_T_MM);
@@ -338,7 +341,6 @@ void KickModule::stepBalance() {
     }
     else 
     {
-        stepMode = false;
         //step_counter_ = 0; // change this
     }
 }
@@ -392,18 +394,19 @@ void KickModule::startStep(BodyPart::Part foot, const Vector3<float>& step, cons
 
 
 //balance process frame
-/*void KickModule::processFrame() {
-	if(walk_request_->start_balance_) 
+void KickModule::processFrame() 
+{
+   
+	if(walk_request_->start_balance_ && !doing_step) 
     {
-		kick_request_->kick_running_ = true;
+        initBalance = true;
 
-		// STIFFNESS
-		// Maintain the stiffness from now on after we turn off walk    
-		walk_request_->noWalk();
-		initJointAngles();
-		initFeetSensorValues();
+	    // STIFFNESS
+	    // Maintain the stiffness from now on after we turn off walk   
+	    //walk_request_->noWalk();
+	    initJointAngles();
+	    initFeetSensorValues();
 
-        
         // Position and Velocity - Pressure Sensors for Left Foot
         l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
         l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
@@ -420,27 +423,45 @@ void KickModule::startStep(BodyPart::Part foot, const Vector3<float>& step, cons
         bool back = sumFsrs(Back) < DETECT;
         bool left =  sumFsrs(Left) < DETECT;
         bool right =  sumFsrs(Right) < DETECT;
-        if(abs(d_x) > XACCEL && (front || back))
+        if(abs(d_x) > XACCEL && (front || back) && step_frame_count_ == 0)
         {   
             if(sgn(d_x) > 0)
             {
                 // Execute Backward Step
-                cout << "____back step " << endl;
-                stepBalance();
+                cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
                 start_step_ = Back;
+                walk_request_->start_balance_ = false;
+                ++step_frame_count_;
+                params_normal_->backAmount = 30.0f;
+                params_normal_->comHeight = 170.0f;
+                params_normal_->comOffset = -10.0f;
+                params_normal_->comOffsetX = -20.0f;
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 500);
+                processFrameForStep();
+                doing_step = true;
+                return;
             }
             else if (sgn(d_x) <= 0)
             {
                 // Execute Forward Step
-                cout << "____forward step " << endl;
-                stepBalance();
+                cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
                 start_step_ = Front;
+                walk_request_->start_balance_ = false;
+                ++step_frame_count_;
+                params_normal_->backAmount *= 30.0f;
+                params_normal_->comHeight *= 170.0f;
+                params_normal_->comOffset *= -10.0f;
+                params_normal_->comOffsetX *= -20.0f;
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 500);
+                processFrameForStep();
+                doing_step = true;
+                return;
             }
         }
-    	
-        if(!stepMode && hipframewait == 0) 
-        {
-		    if(abs(d_x) > XACCEL)
+    	/*
+        if(hipframewait == 0) 
+        {   
+	        if(abs(d_x) > XACCEL)
             {
                 footPitchBalance(x_error, d_x);
             }
@@ -458,39 +479,55 @@ void KickModule::startStep(BodyPart::Part foot, const Vector3<float>& step, cons
                 uprightRollController();
             }
 
-	        hipframewait = WAIT;
+            hipframewait = WAIT;
         }
 
         if(hipframewait > 0)
         {
             --hipframewait;
-        }
-
-        hip_prev_angle_ = commands_->angles_[LHipPitch];
-        roll_prev_angle_ = commands_->angles_[LHipRoll];
-        x_prev_error_ = x_error;
-        y_prev_error_ = y_error;
+        }*/
+                    
+        //hip_prev_angle_ = commands_->angles_[LHipPitch];
+        //roll_prev_angle_ = commands_->angles_[LHipRoll];
+        //x_prev_error_ = x_error;
+        //y_prev_error_ = y_error;
         
-    
-		initStiffness();
-		commands_->stiffness_time_ = 40;
-        //commands_->angles_[LHipPitch] = -40 * DEG_T_RAD;
-        //commands_->angles_[RHipPitch] = -40 * DEG_T_RAD;
+	    //initStiffness();
+	    //commands_->stiffness_time_ = 40;
         //stepBalance();
             
-        updatePreviousAngles();  
-		commands_->send_body_angles_ = true;
-		commands_->body_angle_time_ = 100; // this changes depending on the movement
-
+        //updatePreviousAngles();  
+	    //commands_->send_body_angles_ = true;
+	    //commands_->body_angle_time_ = 100; // this changes depending on the movement
 	}//if start balance
+    else
+    {
+        processFrameForStep();
+        if(doing_step)
+        {
+            step_frame_count_++;
+        }
+    } // if processStep
 
+    if(step_frame_count_ == FRAME_COUNT)
+    {
+        step_frame_count_ = 0;
+        doing_step = false;
+    }
+    if(initBalance && step_frame_count_ == 0)
+    {
+        walk_request_->start_balance_ = true;
+    }
 } //process
-*/
 
-// previous process 
+
+
+// previous process Frame
+/*
 void KickModule::processFrame() {
   processKickRequest();
 
+  cout << "processFramFor() " << KickState::getName(kick_module_->state_) << endl;
   if (kick_module_->state_ == KickState::STAND) {
     kick_request_->kick_running_ = true;
     // only transition into kick if we think we're stable
@@ -531,6 +568,64 @@ void KickModule::processFrame() {
     kick_request_->kick_running_ = true;
   }
 }
+*/
+
+void KickModule::processFrameForStep() {
+  processKickRequest();
+
+  //cout << "processFramFor() " << KickState::getName(kick_module_->state_) << endl;
+
+  if (kick_module_->state_ == KickState::STAND) {
+    kick_request_->kick_running_ = true;
+    // only transition into kick if we think we're stable
+    //std::cout << "walk_info_->instability_: " << walk_info_->instability_ << std::endl;  
+    cout << "____WALK IS ACTIVE " << walk_info_->walk_is_active_ << endl;  
+    if ((!walk_info_->walk_is_active_)) {
+        cout << "____ 2 " << endl;  
+      if (getFramesInState() >= state_params_->state_time / 10) { // divide by 10 to convert from ms to frames.
+        walk_request_->noWalk();
+        cout << "____ 3 " << endl; 
+        transitionToState((KickState::State)(kick_module_->state_ + 1));
+      } else {
+        cout << "____ 4 " << endl; 
+        walk_request_->stand();
+      }
+    } else {
+        cout << "____ 5 " << endl; 
+      walk_request_->stand();
+      transitionToState(KickState::STAND); // restart this state
+      return;
+    }
+  }
+
+  if ((kick_module_->state_ == KickState::WALK) && (frame_info_->seconds_since_start > kick_module_->state_start_time_ + 0.5)) {
+    cout << "____ 6 " << endl; 
+    startKick();
+  }
+
+  // handle transitions
+  while ((kick_module_->state_ != KickState::NONE) && (getFramesInState() >= state_params_->state_time / 10)) { // divide by 10 to convert from ms to frames.
+    cout << "____ 7 " << endl; 
+    if (kick_module_->state_ == KickState::WALK)
+      break;
+    transitionToState((KickState::State)(kick_module_->state_ + 1));
+  }
+  
+  if (kick_module_->state_ == KickState::NONE) {
+    //cout << "____ 8 " << endl; 
+    // not in a kick, let vision know
+    kick_request_->kick_running_ = false;
+    kick_module_->kick_type_ = Kick::NO_KICK;
+  } else {
+    // if we're still in a kick, do it
+    kick();
+    cout << "____ 9 " << endl; 
+    setKickOdometry();
+    kick_request_->kick_running_ = true;
+  }
+}
+
+
 
 int KickModule::getFramesInState() {
   return frame_info_->frame_id - kick_module_->state_start_frame_;
@@ -550,9 +645,12 @@ float KickModule::getFramesPerSecond() {
 }
 
 void KickModule::processKickRequest() {
+    //cout << "____processKickRequ() " << kick_request_->kick_type_ << " " << KickState::getName(kick_module_->state_) << endl;
 	if (kick_request_->kick_type_ == Kick::ABORT) {
 		kick_module_->state_ = KickState::NONE;
+         cout << "______1_______ processKickRequest()  " << endl;
 	} else if ((kick_request_->kick_type_ != Kick::NO_KICK) && (kick_module_->state_ == KickState::NONE)) {
+        cout << "______2_______ processKickRequest()  " << endl;
 		startKick();
 	}
 }
@@ -599,7 +697,6 @@ void KickModule::setLegStiffness(float stiff) {
 }
 
 void KickModule::transitionToState(KickState::State state) {
-	std::cout << "___ transitionToState: " << KickState::getName(kick_module_->state_) << " -> " << KickState::getName(state) << " " << frame_info_->frame_id << std::endl;
 	if (kick_module_->state_ == KickState::STAND && !walk_info_->walk_is_active_) {
 		bool continue_kick = handleAiming();
 		if (continue_kick) {
@@ -626,6 +723,11 @@ void KickModule::transitionToState(KickState::State state) {
 	kick_module_->state_start_time_ = frame_info_->seconds_since_start;
 	kick_module_->state_start_frame_ = frame_info_->frame_id;
 	state_params_ = &(params_->states[kick_module_->state_]);
+
+    //if(initBalance && kick_module_->state_ == KickState::FINISHSTAND && state == KickState::NONE)
+    //{
+    //    walk_request_->start_balance_ = true;
+    //}
 }
 
 bool KickModule::chooseKickLeg() {

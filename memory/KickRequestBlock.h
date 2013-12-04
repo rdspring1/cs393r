@@ -154,6 +154,7 @@ public:
   bool finished_with_step_;
   RingBufferWithSum<float, 10> accelX_;
   RingBufferWithSum<float, 10> accelY_;
+    
 };
 
 #endif /* end of include guard: KICKREQUESTBLOCK_WDRQVCMO */

@@ -96,6 +96,7 @@ class KickModule : public Module {
         void footRollBalance(float y_error, float d_y);
         void startStep(BodyPart::Part foot, const Vector3<float>& step, const Vector3<float>& other_foot);
         void calcStanceSplinePts();
+        void processFrameForStep();
 
 	private:
 		float previous_commands_[NUM_JOINTS];
@@ -120,10 +121,9 @@ class KickModule : public Module {
         float prev_com_y_;
         int step_counter_;
         bool init_angles_;
-        bool stepMode;
         bool stop; ///temp added for kick
         bool set; ///temp added for kick
-        bool temp; ///erase this
+        bool initBalance;
 
 	public:
 		Spline3D swing_spline_;
@@ -160,6 +160,8 @@ class KickModule : public Module {
 
 		FootSensorRegion start_step_;
 		int balance_count_;
+        int step_frame_count_;
+        bool doing_step;
 };
 
 #endif

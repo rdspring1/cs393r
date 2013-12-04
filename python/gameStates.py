@@ -41,12 +41,14 @@ class Localize(MachineTask):
 
 class Playing(MachineTask):
   def __init__(self):
-    #super(Playing, self).__init__(p2Task1.Task1())
-    super(Playing, self).__init__(attacker.DribbleAndKick())
+    super(Playing, self).__init__(p2Task1.Task1())
 
 class Testing(Task):
   def run(self):
+    #reset variables
     core.walk_request.start_balance_ = False
+    core.kick_request.doing_step_ = False
+
     #pose.Sit
     '''commands.setStiffness()
     commands.setWalkVelocity(.5, .2, 0.0)

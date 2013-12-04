@@ -189,7 +189,10 @@ public:
 
   bool slow_stand_; // true if we need a slow stand
 
-  bool start_balance_;
+  bool start_balance_; // true if we have turned balance on
+  int in_step_; // true if we have turned balance on
+  bool start_kick_;
+  bool finish_kick_;
 
   bool walk_decides_finished_with_target_;
   float finished_with_target_max_x_error_;

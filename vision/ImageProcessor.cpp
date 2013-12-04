@@ -106,12 +106,12 @@ void ImageProcessor::processFrame(){
     if(camera_ == Camera::TOP)
         topCamera = true;
 
-    classifier_->classifyImage(color_table_);
-    classifier_->constructRuns();
-    classifier_->mergeRuns();
+    //classifier_->classifyImage(color_table_);
+    //classifier_->constructRuns();
+    //classifier_->mergeRuns();
 
     //std::cout << "-----------------------------------------------------" << std::endl;
-    beacon_detector_->detectBeacon(topCamera);
+    //beacon_detector_->detectBeacon(topCamera);
     //std::cout << "-----------------------------------------------------" << std::endl;
 }
 

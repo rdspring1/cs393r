@@ -27,16 +27,20 @@ class Kick(Task):
     kreq.ball_rel_y_ = ball.relPos.y
 
     if sm.inState(sm.startup):
+      print "_____kicks.py " 
       commands.stand()
       if sm.timeSinceTransition() > 3.0:
+        print "_____kicks.py 2 " 
         sm.transition(sm.kicking)
         kreq.kick_running_ = True
       else: return
 
     if sm.inState(sm.kicking):
+      print "_____kicks.py 3 " 
       core.walk_request.noWalk()
       if sm.timeSinceTransition() > 1.0:
         sm.transition(sm.finish)
+        print "_____kicks.py 4 " 
       kreq.set(core.Kick.STRAIGHT, self.foot, 0, self.desiredDistance)
     
     if sm.inState(sm.finish):
