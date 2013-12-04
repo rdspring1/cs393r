@@ -83,7 +83,7 @@ void KickModule::initSpecificModule() {
     {
 		previous_commands_[i] = joint_angles_->values_[i];
 	}
-    motion_lock_ = new Lock(Lock::getLockName(memory_,LOCK_MOTION));
+    kick_lock_ = new Lock(Lock::getLockName(memory_,LOCK_KICK));
 
 	kick_module_->state_ = KickState::NONE;
 	kick_module_->kick_type_ = Kick::NO_KICK;
@@ -425,35 +425,40 @@ void KickModule::processFrame()
         bool back = sumFsrs(Back) < DETECT;
         bool left =  sumFsrs(Left) < DETECT;
         bool right =  sumFsrs(Right) < DETECT;
-        if(abs(d_x) > XACCEL && (front || back) && step_frame_count_ == 0)
-        {   
-            if(sgn(d_x) > 0)
-            {
-                // Execute Forward Step
-                cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
-                start_step_ = Front;
-                ///walk_request_->start_balance_ = false; ///eb
-                ///++step_frame_count_; ///eb
-                ///params_normal_ = kickParamsGenerator(params_normal_, 40, true, true); ///eb original
-                ///kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
-                ///processFrameForStep(); ///eb
-                ///doing_step = true; ///eb
-                ///return; ///eb
+
+        if(kick_lock_->try_lock())
+        {
+            if(abs(d_x) > XACCEL && (front || back) && step_frame_count_ == 0)
+            {   
+                if(sgn(d_x) > 0)
+                {
+                    // Execute Forward Step
+                    cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
+                    start_step_ = Front;
+                    ///walk_request_->start_balance_ = false; ///eb
+                    ///++step_frame_count_; ///eb
+                    ///params_normal_ = kickParamsGenerator(params_normal_, 40, true, true); ///eb original
+                    ///kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
+                    ///processFrameForStep(); ///eb
+                    ///doing_step = true; ///eb
+                    ///return; ///eb
+                }
+                else if (sgn(d_x) <= 0)
+                {
+                    // Execute Backward Step
+                    cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
+                    start_step_ = Back;
+                    walk_request_->start_balance_ = false; ///eb
+                    ++step_frame_count_; ///eb
+                    ///kickParamsGenerator(params_normal_, 40, false, true); ///eb
+                    kickParamsGenerator(params_normal_, 50, false, true); ///eb
+                    kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
+                    processFrameForStep(); ///eb
+                    doing_step = true; ///eb
+                    return; ///eb
+                }
             }
-            else if (sgn(d_x) <= 0)
-            {
-                // Execute Backward Step
-                cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
-                start_step_ = Back;
-                walk_request_->start_balance_ = false; ///eb
-                ++step_frame_count_; ///eb
-                ///kickParamsGenerator(params_normal_, 40, false, true); ///eb
-                kickParamsGenerator(params_normal_, 50, false, true); ///eb
-                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
-                processFrameForStep(); ///eb
-                doing_step = true; ///eb
-                return; ///eb
-            }
+            kick_lock_->unlock();
         }
     	
         if(hipframewait == 0) 
@@ -495,25 +500,11 @@ void KickModule::processFrame()
 	    commands_->send_body_angles_ = true;
 	    commands_->body_angle_time_ = 100; // this changes depending on the movement
 	}//if start balance
-    else
+
+    if(!walk_request_->start_balance_ && doing_step) 
     {
         processFrameForStep();
-        if(doing_step)
-        {
-            step_frame_count_++;
-        }
     } // if processStep
-
-    if(step_frame_count_ == FRAME_COUNT)
-    {
-        start_step_ = None;
-        step_frame_count_ = 0;
-        doing_step = false;
-    }
-    if(initBalance && step_frame_count_ == 0)
-    {
-        walk_request_->start_balance_ = true;
-    }
 } //process
 
 
@@ -809,6 +800,13 @@ void KickModule::transitionToState(KickState::State state) {
 	kick_module_->state_start_time_ = frame_info_->seconds_since_start;
 	kick_module_->state_start_frame_ = frame_info_->frame_id;
 	state_params_ = &(params_->states[kick_module_->state_]);
+
+    if(initBalance && kick_module_->state_ == KickState::FINISHSTAND && state == KickState:: NONE)
+    {
+        start_step_ = None;
+        doing_step = false;
+        walk_request_->start_balance_ = true;
+    }
 }
 
 bool KickModule::chooseKickLeg() {

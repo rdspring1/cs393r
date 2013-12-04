@@ -164,7 +164,7 @@ class KickModule : public Module {
 		int balance_count_;
         int step_frame_count_;
         bool doing_step;
-        Lock* motion_lock_;
+        Lock* kick_lock_;
 };
 
 #endif

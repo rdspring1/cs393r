@@ -9,6 +9,7 @@
 
 void cleanLock(const std::string &name);
 
+#define LOCK_KICK "kick"
 #define LOCK_MOTION "motion"
 #define LOCK_VISION "vision"
 #define LOCK_MOTION_VISION "motionvision"
