@@ -9,6 +9,7 @@
 #include <motion/KickParameters.h>
 #include <common/RingBufferWithSum.h>
 #include <memory/BodyModelBlock.h>
+#include <memory/Lock.h>
 #include <math/Spline3D.h>
 #define NUM_STEP_POSITIONS 20
 
@@ -163,6 +164,7 @@ class KickModule : public Module {
 		int balance_count_;
         int step_frame_count_;
         bool doing_step;
+        Lock* motion_lock_;
 };
 
 #endif

@@ -83,6 +83,8 @@ void KickModule::initSpecificModule() {
     {
 		previous_commands_[i] = joint_angles_->values_[i];
 	}
+    motion_lock_ = new Lock(Lock::getLockName(memory_,LOCK_MOTION));
+
 	kick_module_->state_ = KickState::NONE;
 	kick_module_->kick_type_ = Kick::NO_KICK;
 	kick_module_->swing_leg_ = Kick::LEFT;
@@ -403,7 +405,7 @@ void KickModule::processFrame()
 
 	    // STIFFNESS
 	    // Maintain the stiffness from now on after we turn off walk   
-	    //walk_request_->noWalk();
+	    walk_request_->noWalk();
 	    initJointAngles();
 	    initFeetSensorValues();
 
@@ -430,29 +432,30 @@ void KickModule::processFrame()
                 // Execute Forward Step
                 cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
                 start_step_ = Front;
-                walk_request_->start_balance_ = false;
-                ++step_frame_count_;
-                params_normal_ = kickParamsGenerator(params_normal_, 40, true, true);
-                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100);
-                processFrameForStep();
-                doing_step = true;
-                return;
+                ///walk_request_->start_balance_ = false; ///eb
+                ///++step_frame_count_; ///eb
+                ///params_normal_ = kickParamsGenerator(params_normal_, 40, true, true); ///eb original
+                ///kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
+                ///processFrameForStep(); ///eb
+                ///doing_step = true; ///eb
+                ///return; ///eb
             }
             else if (sgn(d_x) <= 0)
             {
                 // Execute Backward Step
                 cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
                 start_step_ = Back;
-                walk_request_->start_balance_ = false;
-                ++step_frame_count_;
-                kickParamsGenerator(params_normal_, 40, false, true);
-                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100);
-                processFrameForStep();
-                doing_step = true;
-                return;
+                walk_request_->start_balance_ = false; ///eb
+                ++step_frame_count_; ///eb
+                ///kickParamsGenerator(params_normal_, 40, false, true); ///eb
+                kickParamsGenerator(params_normal_, 50, false, true); ///eb
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
+                processFrameForStep(); ///eb
+                doing_step = true; ///eb
+                return; ///eb
             }
         }
-    	/*
+    	
         if(hipframewait == 0) 
         {   
 	        if(abs(d_x) > XACCEL)
@@ -479,20 +482,18 @@ void KickModule::processFrame()
         if(hipframewait > 0)
         {
             --hipframewait;
-        }*/
-                    
-        //hip_prev_angle_ = commands_->angles_[LHipPitch];
-        //roll_prev_angle_ = commands_->angles_[LHipRoll];
-        //x_prev_error_ = x_error;
-        //y_prev_error_ = y_error;
+        }
+                  
+        hip_prev_angle_ = commands_->angles_[LHipPitch];
+        roll_prev_angle_ = commands_->angles_[LHipRoll];
+        x_prev_error_ = x_error;
+        y_prev_error_ = y_error;
         
-	    //initStiffness();
-	    //commands_->stiffness_time_ = 40;
-        //stepBalance();
-            
-        //updatePreviousAngles();  
-	    //commands_->send_body_angles_ = true;
-	    //commands_->body_angle_time_ = 100; // this changes depending on the movement
+	    initStiffness();
+	    commands_->stiffness_time_ = 40;
+        updatePreviousAngles();  
+	    commands_->send_body_angles_ = true;
+	    commands_->body_angle_time_ = 100; // this changes depending on the movement
 	}//if start balance
     else
     {
@@ -576,17 +577,17 @@ void KickModule::processFrameForStep() {
     //std::cout << "walk_info_->instability_: " << walk_info_->instability_ << std::endl;  
     cout << "____WALK IS ACTIVE " << walk_info_->walk_is_active_ << endl;  
     if ((!walk_info_->walk_is_active_)) {
-        cout << "____ 2 " << endl;  
+        ///cout << "____ 2 " << endl;  
       if (getFramesInState() >= state_params_->state_time / 10) { // divide by 10 to convert from ms to frames.
         walk_request_->noWalk();
-        cout << "____ 3 " << endl; 
+        ///cout << "____ 3 " << endl; 
         transitionToState((KickState::State)(kick_module_->state_ + 1));
       } else {
-        cout << "____ 4 " << endl; 
+        ///cout << "____ 4 " << endl; 
         walk_request_->stand();
       }
     } else {
-        cout << "____ 5 " << endl; 
+        ///cout << "____ 5 " << endl; 
       walk_request_->stand();
       transitionToState(KickState::STAND); // restart this state
       return;
@@ -594,13 +595,13 @@ void KickModule::processFrameForStep() {
   }
 
   if ((kick_module_->state_ == KickState::WALK) && (frame_info_->seconds_since_start > kick_module_->state_start_time_ + 0.5)) {
-    cout << "____ 6 " << endl; 
+    ///cout << "____ 6 " << endl; 
     startKick();
   }
 
   // handle transitions
   while ((kick_module_->state_ != KickState::NONE) && (getFramesInState() >= state_params_->state_time / 10)) { // divide by 10 to convert from ms to frames.
-    cout << "____ 7 " << endl; 
+    ///cout << "____ 7 " << endl; 
     if (kick_module_->state_ == KickState::WALK)
       break;
     transitionToState((KickState::State)(kick_module_->state_ + 1));
@@ -614,7 +615,7 @@ void KickModule::processFrameForStep() {
   } else {
     // if we're still in a kick, do it
     kick();
-    cout << "____ 9 " << endl; 
+    ///cout << "____ 9 " << endl; 
     setKickOdometry();
     kick_request_->kick_running_ = true;
   }
@@ -643,9 +644,9 @@ void KickModule::processKickRequest() {
     //cout << "____processKickRequ() " << kick_request_->kick_type_ << " " << KickState::getName(kick_module_->state_) << endl;
 	if (kick_request_->kick_type_ == Kick::ABORT) {
 		kick_module_->state_ = KickState::NONE;
-         cout << "______1_______ processKickRequest()  " << endl;
+        /// cout << "______1_______ processKickRequest()  " << endl;
 	} else if ((kick_request_->kick_type_ != Kick::NO_KICK) && (kick_module_->state_ == KickState::NONE)) {
-        cout << "______2_______ processKickRequest()  " << endl;
+        ///cout << "______2_______ processKickRequest()  " << endl;
 		startKick();
 	}
 }
@@ -656,11 +657,14 @@ KickParameters* KickModule::kickParamsGenerator(KickParameters * kp, float dista
     float liftAmount = 40; 
     float backAmount = (forward) ? abs(distance) : abs(distance) * -1.0f;
     float throughAmount = 100;
-    float liftAlignAmount = 60;
-    float liftKickAmount = 25;
+    ///float liftAlignAmount = 60; ///eb
+    float liftAlignAmount = 50; 
+    ///float liftKickAmount = 25; ///eb
+    float liftKickAmount = 0;
     float comHeight = 175;
     float comOffset = (rightleg) ? 5 : -5;
-    float comOffsetX = (forward) ? -20 : 20;
+    float comOffsetX = (forward) ? -20 : 20; ///eb initial
+    ///float comOffsetX = (forward) ? 15 : 20; ///eb
     float kick_time = 0;
     KickStateInfo* info = NULL;
 
@@ -754,7 +758,7 @@ void KickModule::startKick() {
 	kick_module_->kick_start_time_ = frame_info_->seconds_since_start;
 	std::cout << "Kick requested: " <<  kick_module_->kick_type_ << "  requested distance: " << kick_module_->desired_kick_distance_ << "  requested angle: " << kick_module_->desired_kick_angle_ << std::endl;
 
-	setHead();
+	/// setHead();
 }
 
 void KickModule::setHead() {
@@ -795,7 +799,7 @@ void KickModule::transitionToState(KickState::State state) {
 
 	if (state == KickState::SHIFT) { 
 		if (params_->states[KickState::SPLINE].state_time > 0) {
-			///calcSwingSplinePts();
+			calcSwingSplinePts(); ///eb
 		}
 	}
 
@@ -852,7 +856,7 @@ void KickModule::kick() {
   Vector3<float> com = state_params_->com;
 
   if (kick_module_->state_ == KickState::SPLINE) {
-    ///sendSplineCOMCommands(com);
+    sendSplineCOMCommands(com); ///eb
     return;
   }
 
@@ -873,7 +877,7 @@ void KickModule::kick() {
   }
 
   if (send_commands) {
-    setHead();
+    /// setHead();
     bool is_left_swing = (kick_module_->swing_leg_ == Kick::LEFT);
     int dir = 1;
     if (!is_left_swing)
@@ -915,7 +919,10 @@ void KickModule::calcSwingSplinePts() {
     time = -0.0685*kick_module_->desired_kick_distance_ + 382.5;
     }
     printf("desired: %2.f\n", kick_module_->desired_kick_distance_);
-    time = crop(time,200,400);
+    //crop the value to within minval, maxval
+    //crop(val, minval, maxval)
+    //time = crop(time,200,400); ///eb
+    time = 200;
     std::cout << "time: " << time << std::endl; 
     //cout<<"Time for kick"<<time<<endl;
 
