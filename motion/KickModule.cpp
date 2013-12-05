@@ -23,6 +23,7 @@
 #define SMOOTH 0.65
 #define WAIT 5
 #define XACCEL 0.08f
+#define BXACCEL 0.02f
 #define YACCEL 0.08f
 #define HIPSTAND (DEG_T_RAD * -30.0f)
 #define HIPROLL (DEG_T_RAD * -0.26f)
@@ -344,9 +345,7 @@ void KickModule::stepBalance() {
 //balance process frame
 void KickModule::processFrame() 
 {
-    kickParamsGenerator(params_normal_, 50, false, true);
-    processFrameForStep();
-    /*if( walk_request_->exit_step_) 
+    if( walk_request_->exit_step_) 
     {
         resetBalanceValues();
         getSensedAngles();
@@ -386,41 +385,21 @@ void KickModule::processFrame()
         //bool bl = sensors_->values_[fsrLRL] < DETECT;
         //bool all = tr | tl | br | bl;
 
-        if(abs(d_x) > XACCEL && (front || back))
+        if(abs(d_x) > BXACCEL && front)
         {   
-            cout << "Start Kick Step" << endl;
-            //if(sgn(d_x) <= 0)
-            //{
-                if(kick_lock_->try_lock())
-                {  
-                    // Execute Forward Step
-                    //cout << walk_request_->start_balance_ << " ____forward step " << frame_info_->frame_id << endl;
-                    //start_step_ = Front;
-                    //walk_request_->start_balance_ = false; ///eb
-                    //params_normal_ = kickParamsGenerator(params_normal_, 50, true, true); ///eb original
-                    //kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
-                    //processFrameForStep(); ///eb
-                    //doing_step = true; ///eb
-                    //kick_lock_->unlock();
-                    //return;
-                }
-            //}
-
-            if (sgn(d_x) > 0)
-            {
-                if(kick_lock_->try_lock())
-                {   
-                    // Execute Backward Step
-                    cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
-                    start_step_ = Back;
-                    walk_request_->start_balance_ = false; ///eb
-                    kickParamsGenerator(params_normal_, 50, false, true); ///eb
-                    kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
-                    processFrameForStep(); ///eb
-                    doing_step = true; ///eb
-                    kick_lock_->unlock();
-                    return;
-                }
+            cout << "Start Back Kick Step" << endl;
+            if(kick_lock_->try_lock())
+            {   
+                // Execute Backward Step
+                cout << walk_request_->start_balance_ << " ____back step " << frame_info_->frame_id << endl;
+                start_step_ = Back;
+                walk_request_->start_balance_ = false; ///eb
+                kickParamsGenerator(params_normal_, 50, false, true); ///eb
+                kick_request_->set(Kick::STRAIGHT, Kick::RIGHT, 0, 100); ///eb
+                processFrameForStep(); ///eb
+                doing_step = true; ///eb
+                kick_lock_->unlock();
+                return;
             }
         }
     	
@@ -468,7 +447,6 @@ void KickModule::processFrame()
     {
         processFrameForStep();
     } // if processStep
-    */
 } //process
 
 void KickModule::processFrameForStep() {
