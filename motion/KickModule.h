@@ -43,6 +43,11 @@ class KickModule : public Module {
 		void specifyMemoryBlocks();
 		void initSpecificModule();
 		void processFrame();
+		void setStand(const float *stand_angles) 
+        {
+			for (int i = 0; i < NUM_JOINTS; i++)
+				STAND_ANGLES[i] = stand_angles[i];
+		}
 
 	private:
         template <typename T> int sgn(T val)
