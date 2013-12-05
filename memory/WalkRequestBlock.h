@@ -84,7 +84,6 @@ public:
   }
 
   void stand() {
-    start_balance_ = false;
     set(STAND,Pose2D(0,0,0),true,false);
   }
 
@@ -189,8 +188,8 @@ public:
 
   bool slow_stand_; // true if we need a slow stand
 
+  bool exit_step_;
   bool start_balance_; // true if we have turned balance on
-  int in_step_; // true if we have turned balance on
   bool start_kick_;
   bool finish_kick_;
 

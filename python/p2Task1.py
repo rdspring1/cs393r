@@ -2,7 +2,6 @@ from state import *
 import commands, core, util, pose, percepts, kicks
 import time
 import math
-import cfgkick
 
 stand = True
 num = 0
@@ -31,11 +30,15 @@ class Choices:
 class ChooseNode(Node):
   def run(self):  
     global stand 
-    global backamount
 
     if stand:
         commands.stand()
         stand = False
+        self.postSignal(Choices.Wait)
+
+    if core.walk_request.exit_step_:
+        print "______EXIT STEP" 
+        commands.stand()
         self.postSignal(Choices.Wait)
 
 class WaitNode(Node):
@@ -43,6 +46,7 @@ class WaitNode(Node):
     if self.getTime() > 5:
       print "______READY" 
       core.speech.say("ready")
+      core.walk_request.exit_step_ = False
       core.walk_request.start_balance_ = True
       self.postSuccess()
 
