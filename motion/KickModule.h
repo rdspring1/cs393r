@@ -42,12 +42,6 @@ class KickModule : public Module {
 		void specifyMemoryDependency();
 		void specifyMemoryBlocks();
 		void initSpecificModule();
-		void setStand(const float *stand_angles) 
-        {
-			for (int i = 0; i < NUM_JOINTS; i++)
-				STAND_ANGLES[i] = stand_angles[i];
-		}
-
 		void processFrame();
 
 	private:
@@ -79,24 +73,40 @@ class KickModule : public Module {
 		void setArms(float command_angles[NUM_JOINTS]);
 		void calcCenterOfMass(float *command_angles, Vector3<float> &center_of_mass, bool stance_is_left, float tilt_roll_factor);
 		void commandLegsRelativeToTorso(float *command_angles, Pose3D left_target, Pose3D right_target, float tilt, float roll, float tilt_roll_factor, bool left_compliant, bool right_compliant);
+        
+        /// Initializes the joint angles used to balance the robot
 		void initJointAngles();
-		void updatePreviousAngles();
-		void initStepPositions();
+        /// Initializes the pressure values for each of the 4 foot regions - front, back, left, right
 		void initFeetSensorValues();
+        /// Sums the pressure values of the given foot region on the left foot
+        /// If the given region is Front, the function will add the value of the top left and top right pressure sensors of the foot
 		float sumFsrs(FootSensorRegion r);
+        /// Determine if any of the foot sensors are not on the ground
         bool footSensorHasValues();
+        /// Set the Left and Right Hip Pitch joint angles to a valid angle
         void setHipPitch(float newXAngle);
+        /// Set the Left and Right Hip Roll joint angles to a valid angle
         void setHipRoll(float newYAngle);
+        /// Returns the Hip Pitch Joints to their regular stand values using PID control
         void uprightPitchController();
+        /// Returns the Hip Roll and Ankle Roll Joints to their regular stand values using PID control
         void uprightRollController();
-        // Joint HipPitch balancing based on feet pressure
+        /// Modify Hip Pitch Joint Angles to balance the robot based on feet pressure
         void footPitchBalance(float x_error, float d_x);
-        // Joint HipRoll balancing based on feet pressure
+        /// Modify Hip Roll and Ankle Roll Joint Angles to balance the robot based on feet pressure
         void footRollBalance(float y_error, float d_y);
+        /// A Process Frame function used to execute a step
         void processFrameForStep();
+        /// A function that dynamically generates a step for the robot alterating the center of mass depending on the type of step
         KickParameters* kickParamsGenerator(KickParameters * kp, float distance, bool forward, bool rightleg);
-        void resetBalanceValues(); //used when we enter step balance
+        /// A function that resets the Hip and Ankle controllers after executing a step
+        void resetBalanceValues(); 
+        /// Determine the Joint Angles from the Sensor
         void getSensedAngles();
+        /// Update the previous joint angles with the command angles for the current process frame
+        void updatePreviousAngles();
+        /// Generates the size of the step to prevent the robot from following using the position and velocity of the center of mass
+        float stepBalance();
 
 	private:
 		float previous_commands_[NUM_JOINTS];
@@ -116,7 +126,6 @@ class KickModule : public Module {
         float roll_prev_angle_;
 		float hipframewait;
         float w_;
-        float rc_;
         float prev_com_x_;
         float prev_com_y_;
         int step_counter_;

@@ -14,6 +14,7 @@
 #include <memory/WalkRequestBlock.h>
 #include <cmath>
 
+#define GRAVITY 9.81f
 #define UKP 0.04f
 #define UKD 0.02f
 #define KP 0.08f
@@ -122,7 +123,6 @@ void KickModule::resetBalanceValues() {
       y_prev_error_ = 0.0;
 }
 
-// Initializes the angles that are going to be modified based on balance status
 void KickModule::initJointAngles() {
 	if(!init_angles_) 
     {
@@ -142,8 +142,8 @@ void KickModule::initJointAngles() {
 
     Vector3<float> c;
     calcCenterOfMass(commands_->angles_, c, true, 0.0f); //gives height of 275
-    prev_com_x_ = c.x / 1000; // to meters
-    prev_com_y_ = c.y / 1000; // to meters
+    prev_com_x_ = c.x / 1000; // convert to meters
+    prev_com_y_ = c.y / 1000; // convert to meters
  }
 
 void KickModule::getSensedAngles() {
@@ -152,7 +152,6 @@ void KickModule::getSensedAngles() {
 		} 
 }
 
-// Updates previous joint angles with the command angles we are sending
 void KickModule::updatePreviousAngles() {
 	for(int joint = 0; joint < NUM_JOINTS; joint++)
 		previous_commands_[joint] = commands_->angles_[joint];
@@ -167,9 +166,6 @@ bool KickModule::footSensorHasValues() {
     return true;
 }
 
-// Sums the pressure values of the given foot region on the left foot
-// If the given region is Front it will add the value of the top
-// left and top right pressure sensors of the foot
 float KickModule::sumFsrs(FootSensorRegion r) {
 	int left_front[2] = {fsrLFL, fsrLFR};
 	int left_back[2] = {fsrLRL, fsrLRR};
@@ -195,7 +191,6 @@ float KickModule::sumFsrs(FootSensorRegion r) {
 	return sum;
 }
 
-// Initializes the pressure values for each of the 4 foot regions
 void KickModule::initFeetSensorValues() {
 	l_fsr_front_ = sumFsrs(Front); // pressure sensors for left foot
 	l_fsr_back_ = sumFsrs(Back);
@@ -288,8 +283,7 @@ void KickModule::footRollBalance(float y_error, float d_y)
     }
 }
 
-/*
-void KickModule::stepBalance() {
+float KickModule::stepBalance() {
 
     // value for h0, for w = sqrt(g/h0);
     // estimate time remaining for the swing
@@ -317,30 +311,8 @@ void KickModule::stepBalance() {
     //cout << "___________com v " << xv << endl;
           
     prev_com_x_ = x0; //update the previous com x
-    //if(step_counter_ < 5 && xv > 0.1){ //how long should the step be?
-    if(step_counter_ < NUMPTS) 
-    {
-        rc_ = xv * sqrt(h0/9.81);
-        //cout << "______rc mm, meters, vx(meters) " << rc_ * M_T_MM << " " << rc_ << " " << xv << endl; //convert to mm
-        calcStepSplinePts(rc_ * M_T_MM);
-
-        Vector3<float> step;
-        step_spline_.calc(step_counter_*10, step);
-
-        calcStanceSplinePts();
-        Vector3<float> other_step;
-        stance_spline_.calc(step_counter_*10, other_step);
-
-        startStep(BodyPart::right_foot, step, other_step);
-       
-        ++step_counter_;
-    }
-    else 
-    {
-        //step_counter_ = 0; // change this
-    }
+    return xv * sqrt(h0/GRAVITY);
 }
-*/
 
 //balance process frame
 void KickModule::processFrame() 
