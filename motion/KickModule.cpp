@@ -344,7 +344,9 @@ void KickModule::stepBalance() {
 //balance process frame
 void KickModule::processFrame() 
 {
-    if( walk_request_->exit_step_) 
+    kickParamsGenerator(params_normal_, 50, false, true);
+    processFrameForStep();
+    /*if( walk_request_->exit_step_) 
     {
         resetBalanceValues();
         getSensedAngles();
@@ -466,6 +468,7 @@ void KickModule::processFrame()
     {
         processFrameForStep();
     } // if processStep
+    */
 } //process
 
 void KickModule::processFrameForStep() {
@@ -556,20 +559,17 @@ KickParameters* KickModule::kickParamsGenerator(KickParameters * kp, float dista
     float liftAmount = 40; 
     float backAmount = (forward) ? abs(distance) : abs(distance) * -1.0f;
     float throughAmount = 100;
-    ///float liftAlignAmount = 60; ///eb
-    float liftAlignAmount = 50; 
-    ///float liftKickAmount = 25; ///eb
+    float liftAlignAmount = 50;
     float liftKickAmount = 0;
     float comHeight = 175;
-    float comOffset = (rightleg) ? 5 : -5;
-    float comOffsetX = (forward) ? -20 : 20; ///eb initial
-    ///float comOffsetX = (forward) ? 15 : 20; ///eb
+    float comOffset = (rightleg) ? 10 : -10;
+    float comOffsetX = (forward) ? -20 : 20;
     float kick_time = 0;
     KickStateInfo* info = NULL;
 
     info = kp->getStateInfoPtr(KickState::STAND);
     info->state_time = 200;
-    info->joint_time = 100;
+    info->joint_time = 200;
     info->com = Vector3<float>(comOffsetX,50,comHeight);
     info->swing = Vector3<float>(0,110,0);
     kick_time += info->state_time;
@@ -1018,7 +1018,7 @@ void KickModule::calcJointTargets(const Vector3<float> &com_target, const Pose3D
 		tr.roll_ = roll;
 
 		commandLegsRelativeToTorso(command_angles, left_target, right_target, tr.tilt_, tr.roll_, 0.0f, left_compliant,right_compliant);
-		///setArms(command_angles);
+		setArms(command_angles);
 
 		// calculate new com based on these joint commands
 		calcCenterOfMass(command_angles, com, !is_left_swing, 0.0f);

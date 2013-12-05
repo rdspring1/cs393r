@@ -41,6 +41,7 @@ class Localize(MachineTask):
 
 class Playing(MachineTask):
   def __init__(self):
+    #super(Playing, self).__init__(p2Task1.Task1())
     super(Playing, self).__init__(p2Task1.Task1())
 
 class Testing(Task):

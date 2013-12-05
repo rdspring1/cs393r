@@ -66,7 +66,7 @@ class WalkForwardNode(Node):
     global previous_ball_distance
     if self.getTime() > 5:
         print "*** Going to kick"
-        #self.postSignal(Choices.RightKick)
+        self.postSignal(Choices.RightKick)
         core.kick_request.set(core.Kick.STRAIGHT, core.Kick.RIGHT, 0, 500)
         previous_ball_distance = 1
         self.postSuccess()
