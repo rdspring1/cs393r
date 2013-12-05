@@ -97,7 +97,7 @@ class KickModule : public Module {
         void footRollBalance(float y_error, float d_y);
         /// A Process Frame function used to execute a step
         void processFrameForStep();
-        /// A function that dynamically generates a step for the robot alterating the center of mass depending on the type of step
+        /// A function that dynamically generates a step for the robot alternating the center of mass depending on the type of step
         KickParameters* kickParamsGenerator(KickParameters * kp, float distance, bool forward, bool rightleg);
         /// A function that resets the Hip and Ankle controllers after executing a step
         void resetBalanceValues(); 
