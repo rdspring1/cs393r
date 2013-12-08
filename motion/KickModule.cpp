@@ -323,6 +323,22 @@ void KickModule::processFrame()
         getSensedAngles();
         return;    
     }
+
+    // don't run balance
+    /*if(walk_request_->start_balance_ && !doing_step) 
+    {
+        l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
+        l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
+        l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
+        l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+
+        float x_error = l_fsr_front_ - l_fsr_back_;
+        float y_error = l_fsr_right_ - l_fsr_left_;
+
+        float d_x = x_error - x_prev_error_;
+        float d_y = y_error - y_prev_error_;
+        cout << x_error << " " << y_error << " " << l_fsr_front_ << " " << l_fsr_back_ << " " << l_fsr_left_ << " " << l_fsr_right_ << endl;
+    }*/
    
 	if(walk_request_->start_balance_ && !doing_step) 
     {
@@ -342,6 +358,8 @@ void KickModule::processFrame()
 
         float x_error = l_fsr_front_ - l_fsr_back_;
         float y_error = l_fsr_right_ - l_fsr_left_;
+
+        cout << x_error << " " << y_error << endl;
 
         float d_x = x_error - x_prev_error_;
         float d_y = y_error - y_prev_error_;
@@ -417,6 +435,17 @@ void KickModule::processFrame()
 
     if(!walk_request_->start_balance_ && doing_step) 
     {
+        l_fsr_front_ = (1 - SMOOTH) * l_fsr_front_ + SMOOTH * sumFsrs(Front);
+        l_fsr_back_ = (1 - SMOOTH) * l_fsr_back_ + SMOOTH * sumFsrs(Back);
+        l_fsr_left_ = (1 - SMOOTH) * l_fsr_left_ + SMOOTH * sumFsrs(Left);
+        l_fsr_right_ = (1 - SMOOTH) * l_fsr_right_ + SMOOTH * sumFsrs(Right);
+
+        float x_error = l_fsr_front_ - l_fsr_back_;
+        float y_error = l_fsr_right_ - l_fsr_left_;
+
+        float d_x = x_error - x_prev_error_;
+        float d_y = y_error - y_prev_error_;
+        cout << x_error << " " << y_error << endl;  
         processFrameForStep();
     } // if processStep
 } //process
