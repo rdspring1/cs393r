@@ -12,11 +12,11 @@ class Task1(StateMachine):
     choose = ChooseNode()
     wait = WaitNode()
     finish = Node()
-    right_kick = RightKickNode()
+    walk = WalkNode()
     
     self._adt(start, N, choose)
     self._adt(choose, S(Choices.Wait), wait, S, choose)
-    self._adt(choose, S(Choices.RightKick), right_kick, S, choose)
+    self._adt(choose, S(Choices.Walk), walk, S, choose)
     self._adt(choose, S(Choices.Finish), finish)
 
 class Choices:
@@ -24,14 +24,25 @@ class Choices:
   Wait = 1
   Choose = 2
   Finish = 3
-  RightKick = 4
+  Walk = 4
   NumChoices = 5
+
 
 class ChooseNode(Node):
   def run(self):  
     global stand 
 
     if stand:
+        core.walk_request.exit_balance_ = False
+        commands.stand()
+        stand = False
+        self.postSignal(Choices.Wait)
+
+    #walk and stop, resume after 3 seconds
+    if(core.walk_request.exit_balance_):
+        self.postSignal(Choices.Walk)
+    
+    '''if stand:
         commands.stand()
         stand = False
         self.postSignal(Choices.Wait)
@@ -39,7 +50,17 @@ class ChooseNode(Node):
     if core.walk_request.exit_step_:
         print "______EXIT STEP" 
         commands.stand()
-        self.postSignal(Choices.Wait)
+        self.postSignal(Choices.Wait)'''
+
+class WalkNode(Node):
+    def run(self):
+        #core.speech.say("walk")
+        commands.setWalkVelocity(0.5, 0.0, -20*core.DEG_T_RAD) #rotate around ball #y=0.3 initially
+        if self.getTime() > 3:
+            commands.stand()
+            core.speech.say("stand")
+            self.postSuccess()
+            
 
 class WaitNode(Node):
   def run(self):
@@ -47,37 +68,5 @@ class WaitNode(Node):
       print "______READY" 
       core.speech.say("ready")
       core.walk_request.exit_step_ = False
-      core.walk_request.start_balance_ = True
+      core.walk_request.exit_balance_ = True
       self.postSuccess()
-
-class RightKickNode(Node):
-  def __init__(self):
-    super(RightKickNode, self).__init__()
-    self.task = kicks.Kick(core.Kick.RIGHT, 5000)
-    
-  def run(self):
-    #print "Right Kick"
-    #core.speech.say("Right Kick")
-    commands.stand()
-    self.task.processFrame()
-    if self.task.finished():
-      self.postSuccess()
-      
-  def reset(self):
-    super(RightKickNode, self).reset()
-    self.task = kicks.Kick(core.Kick.RIGHT, 5000)
-    
-class SearchNode(Node):
-  def run(self):
-    core.speech.say("Search")
-    commands.setWalkVelocity(0.0, 0.0, 20 * core.DEG_T_RAD)
-    if self.getTime() > 2:
-      self.postSuccess()
-
-
-
-
-
-
-
-

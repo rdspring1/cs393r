@@ -92,10 +92,12 @@ class KickModule : public Module {
         void setHipPitch(float newXAngle);
         /// Set the Left and Right Hip Roll joint angles to a valid angle
         void setHipRoll(float newYAngle);
-        /// Returns the Hip Pitch Joints to their regular stand values using PID control
+        /// Returns the Hip Pitch Joints to their regular stand values using PD control
         void uprightPitchController();
-        /// Returns the Hip Roll and Ankle Roll Joints to their regular stand values using PID control
+        /// Returns the Hip Roll and Ankle Roll Joints to their regular stand values using PD control
         void uprightRollController();
+        /// Returns the Knee Pitch Joint to their regular stand values using P control
+        void uprightKneePitchController();
         /// Modify Hip Pitch Joint Angles to balance the robot based on feet pressure
         void footPitchBalance(float x_error, float d_x);
         /// Modify Hip Roll and Ankle Roll Joint Angles to balance the robot based on feet pressure
@@ -112,6 +114,8 @@ class KickModule : public Module {
         void updatePreviousAngles();
         /// Generates the size of the step to prevent the robot from following using the position and velocity of the center of mass
         float stepBalance();
+        /// Determine if the robot is stable through joint angle positions and stepmode
+        bool checkStable();
 
 	private:
 		float previous_commands_[NUM_JOINTS];
@@ -178,6 +182,9 @@ class KickModule : public Module {
         Lock* kick_lock_;
         bool exit_step_;
         int exit_step_count;
+        int start_timer_;
+        int exit_timer_;
 };
+
 
 #endif

@@ -190,6 +190,8 @@ public:
 
   bool exit_step_;
   bool start_balance_; // true if we have turned balance on
+  bool exit_balance_;
+  bool started_;
   bool start_kick_;
   bool finish_kick_;
 
